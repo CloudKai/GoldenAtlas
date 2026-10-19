@@ -22,6 +22,7 @@ import {
   Play,
   Shield,
   Trash2,
+  UserPlus,
   UserRound,
   X,
 } from "lucide-react";
@@ -341,9 +342,20 @@ export function ProfileScreen() {
     setNotice("Export prepared");
   };
 
+  const isGuest = Boolean(user?.isGuest);
+  const GUEST_LEAVE_WARNING = "Your guest trips and photos will be deleted from this browser and can’t be recovered. Continue?";
+
   const signOut = () => {
+    if (isGuest && !window.confirm(GUEST_LEAVE_WARNING)) return;
     endSession();
     navigate("/", { replace: true });
+  };
+
+  // Guest data stays on this device, so it cannot move into the new account.
+  const createAccountFromGuest = () => {
+    if (!window.confirm(GUEST_LEAVE_WARNING)) return;
+    endSession();
+    navigate("/signup", { replace: true });
   };
 
   const finishPanelAction = (message: string) => {
@@ -369,12 +381,12 @@ export function ProfileScreen() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate" style={{ color: "var(--foreground)", fontSize: "18px", fontWeight: 650 }}>{profile.name}</p>
-              <p className="mt-0.5 truncate" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{profile.email}</p>
-              <p className="mt-1" style={{ color: "var(--gold)", fontSize: "10px", fontWeight: 650 }}>Private traveller profile</p>
+              <p className="mt-0.5 truncate" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{isGuest ? "Guest session" : profile.email}</p>
+              <p className="mt-1" style={{ color: "var(--gold)", fontSize: "10px", fontWeight: 650 }}>{isGuest ? "Stays on this device only" : "Private traveller profile"}</p>
             </div>
-            <button type="button" onClick={openProfileEditor} className="flex h-11 items-center gap-1.5 rounded-xl border px-3 transition-colors hover:bg-accent" style={{ borderColor: "var(--border)", color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
+            {!isGuest && <button type="button" onClick={openProfileEditor} className="flex h-11 items-center gap-1.5 rounded-xl border px-3 transition-colors hover:bg-accent" style={{ borderColor: "var(--border)", color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
               <Pencil size={13} /> Edit
-            </button>
+            </button>}
           </div>
           <div className="grid grid-cols-3 border-t" style={{ borderColor: "var(--border)" }}>
             {[
@@ -390,10 +402,14 @@ export function ProfileScreen() {
           </div>
         </section>
 
-        <SectionHeader title="Account" description="Personal details and sign-in security" />
+        <SectionHeader title="Account" description={isGuest ? "You’re browsing as a guest" : "Personal details and sign-in security"} />
         <SettingsCard>
-          <SettingRow icon={UserRound} label="Personal information" description="Name and email address" value={profile.name.split(" ")[0]} onPress={openProfileEditor} />
-          <SettingRow icon={LockKeyhole} label="Password & security" description="Update your account password" onPress={() => setPanel("change-password")} />
+          {isGuest ? (
+            <SettingRow icon={UserPlus} label="Create an account" description="Keep your atlas across devices. Guest trips can’t be moved over." onPress={createAccountFromGuest} />
+          ) : (<>
+            <SettingRow icon={UserRound} label="Personal information" description="Name and email address" value={profile.name.split(" ")[0]} onPress={openProfileEditor} />
+            <SettingRow icon={LockKeyhole} label="Password & security" description="Update your account password" onPress={() => setPanel("change-password")} />
+          </>)}
         </SettingsCard>
 
         <SectionHeader title="App preferences" description="Control how Golden Atlas looks and behaves" />
@@ -439,8 +455,8 @@ export function ProfileScreen() {
 
         <SectionHeader title="Session" />
         <SettingsCard className="mb-6">
-          <SettingRow icon={LogOut} label="Sign out" description="Sign out on this device" onPress={signOut} />
-          <SettingRow icon={Trash2} label="Delete account" description="Permanently remove your account and data" danger onPress={() => setPanel("delete-account")} />
+          <SettingRow icon={LogOut} label={isGuest ? "Leave guest mode" : "Sign out"} description={isGuest ? "Delete guest trips and photos from this browser" : "Sign out on this device"} onPress={signOut} />
+          {!isGuest && <SettingRow icon={Trash2} label="Delete account" description="Permanently remove your account and data" danger onPress={() => setPanel("delete-account")} />}
         </SettingsCard>
       </div>
 

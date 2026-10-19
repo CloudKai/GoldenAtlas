@@ -162,6 +162,38 @@ export class LocalRepository {
     return { user: publicUser, state: emptyState(user.id) };
   }
 
+  /** Removes every guest account with its trips and photos. Guest sessions cannot be resumed once their tab is gone. */
+  private async purgeGuests() {
+    const db = await this.open();
+    const tx = db.transaction(["accounts", "states", "photos"], "readwrite");
+    const accounts = tx.objectStore("accounts");
+    const states = tx.objectStore("states");
+    const photos = tx.objectStore("photos");
+    const everyone = await request(accounts.getAll()) as AccountRecord[];
+    for (const guest of everyone.filter((account) => account.isGuest)) {
+      accounts.delete(guest.id);
+      states.delete(guest.id);
+      const ids = await request(photos.index("userId").getAllKeys(guest.id));
+      ids.forEach((id) => photos.delete(id));
+    }
+    await transactionDone(tx);
+  }
+
+  /** Starts a passwordless guest session whose data never leaves this browser. */
+  async createGuest() {
+    await this.purgeGuests();
+    const db = await this.open();
+    const id = crypto.randomUUID();
+    // `.invalid` is a reserved TLD, so this address can never belong to a real person or receive mail.
+    const user: AccountRecord = { id, name: "Guest", email: `guest-${id}@guest.invalid`, isDemo: false, isGuest: true, createdAt: new Date().toISOString() };
+    const tx = db.transaction(["accounts", "states"], "readwrite");
+    tx.objectStore("accounts").add(user);
+    tx.objectStore("states").add(emptyState(id));
+    await transactionDone(tx);
+    sessionStorage.setItem(SESSION_KEY, id);
+    return { user: user as AppUser, state: emptyState(id) };
+  }
+
   async signIn(email: string, password: string) {
     const { store } = await this.store("accounts");
     const record = await request(store.index("email").get(email.trim().toLowerCase())) as AccountRecord | undefined;
@@ -217,7 +249,7 @@ export class LocalRepository {
       request(stateRequest) as Promise<AppState[]>,
       request(photoRequest),
     ]);
-    const accountIds = new Set(allAccounts.filter((account) => !account.isDemo).map((account) => account.id));
+    const accountIds = new Set(allAccounts.filter((account) => !account.isDemo && !account.isGuest).map((account) => account.id));
     return {
       accounts: accountIds.size,
       trips: allStates.filter((state) => accountIds.has(state.userId)).reduce((total, state) => total + state.trips.length, 0),
@@ -241,6 +273,7 @@ export class LocalRepository {
     const db = await this.open();
     const record = await request(db.transaction("accounts").objectStore("accounts").get(userId)) as AccountRecord;
     if (record.isDemo) throw new Error("The demo account password cannot be changed.");
+    if (record.isGuest) throw new Error("Guest sessions have no password. Create an account to set one.");
     const current = await passwordDigest(currentPassword, base64ToBytes(record.passwordSalt!));
     if (current.hash !== record.passwordHash) throw new Error("Current password is incorrect.");
     const next = await passwordDigest(newPassword);

@@ -22,6 +22,8 @@ export interface AtlasBackend {
   onSignedOut(listener: () => void): () => void;
   register(name: string, email: string, password: string): Promise<RegisterResult>;
   signIn(email: string, password: string): Promise<AtlasSession>;
+  /** Starts a device-only guest session. Only the browser-local backend provides this. */
+  startGuest?(): Promise<AtlasSession>;
   signOut(): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   completePasswordReset(newPassword: string): Promise<void>;

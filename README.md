@@ -35,6 +35,8 @@ cp .env.example .env
 
 With both variables set, the web app uses email/password auth with required email verification (open the link from the local mailbox at `http://127.0.0.1:54324`), Postgres through row-level security, private storage with ten-minute signed image URLs, and the Edge Functions for memory upload, deletion, and data export. The app refuses to start if the key looks like a service-role or secret key. The prototype-only admin console is disabled in this mode.
 
+**Try as guest** (Welcome screen) starts a passwordless, device-only session in either mode. Guest trips and photos are stored in this browser's IndexedDB, are never sent to Supabase, and are deleted when the guest leaves or the next guest session starts. They cannot be moved into an account.
+
 Known limits of the web integration:
 
 - Photos are decoded and re-encoded in the browser (which removes EXIF/GPS) before upload; only JPEG and PNG inputs are supported.

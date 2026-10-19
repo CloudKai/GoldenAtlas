@@ -29,6 +29,11 @@ export function createLocalBackend(): AtlasBackend {
 
     signIn: (email, password) => localRepository.signIn(email, password),
 
+    async startGuest() {
+      await localRepository.open();
+      return localRepository.createGuest();
+    },
+
     async signOut() { localRepository.clearSession(); },
 
     async requestPasswordReset() { throw hostedOnly(); },

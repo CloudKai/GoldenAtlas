@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PhotoAsset } from "../lib/local-repository";
+import type { AtlasBackend } from "../lib/backend";
 import { selectBackend } from "../lib/backend-factory";
+import { createLocalBackend } from "../lib/local-backend";
 import { applyMediaUrls } from "../lib/supabase-mappers";
 import { deriveStatistics } from "../lib/selectors";
 import type { AppState, AppUser, Trip } from "../types/domain";
@@ -16,6 +18,9 @@ interface AppDataValue {
   /** Resolves `verifyEmail: true` when the account exists but the address must be confirmed before sign-in. */
   register(name: string, email: string, password: string): Promise<{ verifyEmail: boolean }>;
   signIn(email: string, password: string): Promise<void>;
+  /** Starts a device-only guest session; nothing is sent to the hosted backend. */
+  startGuest(): Promise<void>;
+  /** For guests this also deletes the guest's trips and photos from this browser. */
   signOut(): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   completePasswordReset(newPassword: string): Promise<void>;
@@ -39,7 +44,13 @@ const MEDIA_REFRESH_MS = 5 * 60 * 1000;
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [selected] = useState(selectBackend);
-  const backend = selected.backend;
+  const primary = selected.backend;
+  // Guests always use the browser-local backend, even when a hosted backend is configured.
+  const [guestBackend] = useState<AtlasBackend>(() => primary.kind === "local" ? primary : createLocalBackend());
+  const [guestActive, setGuestActive] = useState(false);
+  const backend = guestActive ? guestBackend : primary;
+  const guestActiveRef = useRef(false);
+  guestActiveRef.current = guestActive;
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(selected.configError ?? "");
   const [user, setUser] = useState<AppUser | null>(null);
@@ -52,17 +63,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (selected.configError) { setReady(true); return; }
     let active = true;
-    const unsubscribe = backend.onSignedOut(() => { if (active) { setUser(null); setState(null); } });
+    // A hosted sign-out event must not end an unrelated device-only guest session.
+    const unsubscribe = primary.onSignedOut(() => { if (active && !guestActiveRef.current) { setUser(null); setState(null); } });
     (async () => {
       try {
-        const session = await backend.init();
+        let session = primary.kind === "supabase" ? await guestBackend.init().catch(() => null) : null;
+        if (session?.user.isGuest) { if (active) setGuestActive(true); }
+        else session = await primary.init();
         if (session && active) { setUser(session.user); setState(session.state); lastMediaRefresh.current = Date.now(); }
       } catch (error) {
         if (active) setStorageError(error instanceof Error ? error.message : "Your atlas could not be opened.");
       } finally { if (active) setReady(true); }
     })();
     return () => { active = false; unsubscribe(); };
-  }, [backend, selected.configError]);
+  }, [primary, guestBackend, selected.configError]);
 
   // Private image links expire after ten minutes, so re-sign them while the app is open.
   const userId = user?.id;
@@ -104,19 +118,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ready, remote: backend.kind === "supabase", storageError, user, state,
     statistics: state ? deriveStatistics(state) : null,
     register: async (name, email, password) => {
-      const result = await backend.register(name, email, password);
+      const result = await primary.register(name, email, password);
       if (result.status === "verify-email") return { verifyEmail: true };
-      setUser(result.session.user); setState(result.session.state);
+      setGuestActive(false); setUser(result.session.user); setState(result.session.state);
       return { verifyEmail: false };
     },
-    signIn: async (email, password) => { const session = await backend.signIn(email, password); setUser(session.user); setState(session.state); },
+    signIn: async (email, password) => { const session = await primary.signIn(email, password); setGuestActive(false); setUser(session.user); setState(session.state); },
+    startGuest: async () => {
+      const session = await guestBackend.startGuest!();
+      setGuestActive(true); setUser(session.user); setState(session.state);
+    },
     signOut: async () => {
       // Leave the UI immediately; a failed network revoke must not trap the user in a signed-in screen.
-      setUser(null); setState(null);
-      await backend.signOut().catch(() => undefined);
+      const leaving = user;
+      setUser(null); setState(null); setGuestActive(false);
+      // Guest data is unrecoverable once the session ends, so remove it rather than leave it behind.
+      if (leaving?.isGuest) await guestBackend.deleteAccount(leaving).catch(() => undefined);
+      else await primary.signOut().catch(() => undefined);
     },
-    requestPasswordReset: (email) => backend.requestPasswordReset(email),
-    completePasswordReset: (newPassword) => backend.completePasswordReset(newPassword),
+    requestPasswordReset: (email) => primary.requestPasswordReset(email),
+    completePasswordReset: (newPassword) => primary.completePasswordReset(newPassword),
     saveTrip: async (trip, assets = []) => {
       if (!state) throw new Error("Sign in before changing your atlas.");
       const result = await backend.saveTrip(state, trip, assets);
@@ -135,9 +156,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return result.notice;
     },
     changePassword: async (currentPassword, newPassword) => { if (user) await backend.changePassword(user, currentPassword, newPassword); },
-    deleteAccount: async (password) => { if (!user) return; await backend.deleteAccount(user, password); setUser(null); setState(null); },
+    deleteAccount: async (password) => { if (!user) return; await backend.deleteAccount(user, password); setUser(null); setState(null); setGuestActive(false); },
     exportData: backend.exportData ? () => backend.exportData!() : undefined,
-  }), [backend, mutate, ready, state, storageError, user]);
+  }), [backend, guestBackend, mutate, primary, ready, state, storageError, user]);
 
   return (
     <AppDataContext.Provider value={value}>

@@ -4,6 +4,8 @@ export interface AppUser {
   email: string;
   avatarUrl?: string;
   isDemo: boolean;
+  /** A passwordless, device-only session created by "Try as guest". */
+  isGuest?: boolean;
   createdAt: string;
 }
 
