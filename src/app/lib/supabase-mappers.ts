@@ -1,6 +1,7 @@
 // Pure helpers that translate between Supabase rows and the web app's domain model.
-// This module must stay free of runtime imports (types only) so it can be unit tested in Node.
+// Keep this module free of browser APIs so it can be unit tested in Node.
 import type { Tables } from "../../types/database.generated";
+import { expenseProblem } from "./trip-extras";
 import type { AppState, MemoryPhoto, Trip, TripStop } from "../types/domain";
 
 export type TripRow = Tables<"trips">;
@@ -20,9 +21,10 @@ export interface CityRef {
   longitude: number;
 }
 
+/** Signed links for one photo. Either may be missing: thumbnails are signed first, originals follow. */
 export interface MediaUrls {
-  url: string;
-  thumbnailUrl: string;
+  url?: string;
+  thumbnailUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +80,7 @@ export function stopFromPlace(place: PlaceRow, cities: readonly CityRef[], trip:
 export function photoFromMemory(row: MemoryRow, urls: MediaUrls | undefined): MemoryPhoto {
   return {
     id: row.id,
-    url: urls?.url ?? "",
+    url: urls?.url || urls?.thumbnailUrl || "",
     thumbnailUrl: urls?.thumbnailUrl || urls?.url || undefined,
     caption: row.caption ?? "",
     date: dateFromTakenAt(row.taken_at, row.created_at),
@@ -126,9 +128,10 @@ export function tripFromRow(row: TripRow, assembly: TripAssembly): Trip {
     companions: [...assembly.companions],
     places: assembly.places.map((place) => place.name),
     stops,
+    expense: row.expense_amount !== null && row.expense_currency ? { amount: Number(row.expense_amount), currency: row.expense_currency } : undefined,
     days: [...(assembly.days ?? [])]
       .sort((a, b) => a.day_date.localeCompare(b.day_date))
-      .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "" })),
+      .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "", places: day.places ?? [] })),
     isFavourite: row.is_favourite,
   };
 }
@@ -148,6 +151,8 @@ export function tripToRow(trip: Trip) {
     favourite_memory: trip.favouriteMemory?.trim() || null,
     mood: trip.mood || null,
     rating: trip.rating >= 1 && trip.rating <= 5 ? Math.round(trip.rating) : null,
+    expense_amount: trip.expense ? trip.expense.amount : null,
+    expense_currency: trip.expense ? trip.expense.currency : null,
     is_favourite: trip.isFavourite,
   };
 }
@@ -231,7 +236,8 @@ export function applyMediaUrls(state: AppState, urls: ReadonlyMap<string, MediaU
     trips: state.trips.map((trip) => {
       const photos = trip.photos.map((photo) => {
         const fresh = urls.get(photo.id);
-        return fresh ? { ...photo, url: fresh.url, thumbnailUrl: fresh.thumbnailUrl } : photo;
+        // A link that failed to sign must never replace one that still works.
+        return fresh ? { ...photo, url: fresh.url || photo.url, thumbnailUrl: fresh.thumbnailUrl || photo.thumbnailUrl } : photo;
       });
       return { ...trip, photos, coverImage: photos.find((photo) => photo.url)?.url ?? trip.coverImage };
     }),
@@ -261,12 +267,16 @@ export function validateRemoteTrip(trip: Trip) {
   (trip.days ?? []).forEach((day) => {
     tooLong("Day title", day.title?.trim(), 120);
     tooLong("Day diary", day.notes, 20_000);
+    (day.places ?? []).forEach((name) => tooLong("Day place", name.trim(), 180));
+    if ((day.places ?? []).length > 30) errors.push("A day can list at most 30 places.");
   });
   trip.photos.forEach((photo) => {
     tooLong("Photo caption", photo.caption, 2_000);
     tooLong("Photo location", photo.location, 240);
   });
   if (!/^[A-Z]{2}$/.test(trip.countryId)) errors.push("Select a supported country.");
+  const expenseIssue = expenseProblem(trip.expense);
+  if (expenseIssue) errors.push(expenseIssue);
   return [...new Set(errors)];
 }
 

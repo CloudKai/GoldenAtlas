@@ -10,6 +10,7 @@ Photos and travel history are private by default.
 4. A database trigger ignores client paths and generates unpredictable paths under the authenticated ownership/trip/memory boundary.
 5. The client uploads once to those exact paths with `upsert: false`.
 6. `finalize-memory-upload` checks both stored objects and marks the record `ready`. UI queries display only ready memories.
+7. The web client uploads a few photos at a time and retries transient failures. Photos that still fail are kept only in memory for a retry; a half-finished record is removed through `delete-memory`, with the abandoned-upload worker as the backstop.
 
 The free-tier backend validates object metadata but cannot decode image content or prove that EXIF was removed. Client-side processing is therefore a security requirement, not merely a UI optimization.
 
@@ -36,6 +37,7 @@ An authenticated user can generate a private JSON export containing profile, pre
 | Trips/journals/places | Private travel diary | User controlled | Row/trip/account deletion |
 | Original/thumbnail images | Private memories and efficient display | Until memory/trip/account deletion | Storage API before metadata |
 | Pending/failed uploads | Upload recovery | 24 hours | Cleanup worker |
+| Unsaved drafts (text only, in the browser) | Recover work after a lost connection or closed tab | Up to 30 days, device only | Saving, discarding, signing out, or account deletion |
 | JSON exports | Portability | 24 hours | Expiry/access cleanup worker |
 | Function logs | Operations without private content | Hosting log policy | Provider/operator retention |
 

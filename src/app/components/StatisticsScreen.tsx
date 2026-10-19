@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { getCountry } from "../data/countries";
 import { hasStarted } from "../lib/trip-days";
+import { expenseTotals, formatMoney } from "../lib/trip-extras";
 import { Globe, Camera, Plane, MapPin, Star, Clock, BarChart2, Info } from "lucide-react";
 import { useAppData } from "../contexts/AppDataContext";
 
@@ -29,6 +30,8 @@ export function StatisticsScreen() {
   if (!state || !stats) return null;
   const pct = Math.min(100, Math.round((stats.worldCountriesVisited / stats.totalCountries) * 100));
   const otherPlaces = stats.countriesVisited - stats.worldCountriesVisited;
+  // Money is totalled per currency and only for trips that have happened; planned budgets are left out.
+  const spending = expenseTotals(state.trips.filter((trip) => hasStarted(trip)));
   const maxTripsInYear = Math.max(1, ...stats.tripsByYear.map((y) => y.count));
   const visitedIds = [...new Set(state.trips.filter((trip) => hasStarted(trip)).map((trip) => trip.countryId))];
   const continentCounts = new Map<string, number>();
@@ -115,6 +118,21 @@ export function StatisticsScreen() {
           </div>
           {stats.tripsByYear.length > 0 ? <div className="flex justify-between mt-1"><span style={{ fontSize: "10px", color: "var(--muted-foreground)" }}>{stats.tripsByYear[0].year}</span><span style={{ fontSize: "10px", color: "var(--muted-foreground)" }}>{stats.tripsByYear.at(-1)?.year}</span></div> : <p className="text-center text-xs" style={{ color: "var(--muted-foreground)" }}>Your yearly travel pattern will appear after your first trip.</p>}
         </div>
+
+        {spending.length > 0 && (
+          <div className="rounded-2xl p-4 mb-4" style={{ background: "var(--card)" }}>
+            <p className="mb-3" style={{ fontSize: "15px", fontWeight: 600, color: "var(--foreground)" }}>Spending</p>
+            <ul className="flex flex-col gap-2">
+              {spending.map((total) => (
+                <li key={total.currency} className="flex items-baseline justify-between">
+                  <span style={{ fontSize: "18px", fontWeight: 650, color: "var(--foreground)" }}>{formatMoney(total.amount, total.currency)}</span>
+                  <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>across {total.trips} {total.trips === 1 ? "trip" : "trips"}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3" style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Totals are kept per currency and only include trips that have started.</p>
+          </div>
+        )}
 
         {/* Highlights */}
         <div className="rounded-2xl p-4 mb-4" style={{ background: "var(--card)" }}>

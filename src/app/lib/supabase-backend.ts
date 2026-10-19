@@ -1,7 +1,10 @@
 import type { User } from "@supabase/supabase-js";
 import { CITY_OPTIONS } from "../data/city-visits";
 import type { AppState, AppUser, Trip } from "../types/domain";
-import type { AtlasBackend, AtlasSession } from "./backend";
+import type { AtlasBackend, AtlasSession, SaveProgress } from "./backend";
+import { runPool, withRetry } from "./async-pool";
+import { getCountry } from "../data/countries";
+import { isUntouchedRow, preferencesFromRow, rowPatchFromPreferences } from "./preferences-sync";
 import type { PhotoAsset } from "./local-repository";
 import { getSupabase, type AtlasClient } from "./supabase";
 import {
@@ -14,6 +17,8 @@ import { planDaySync, tripDays } from "./trip-days";
 
 const PAGE_SIZE = 500;
 const SIGN_BATCH = 100;
+const SIGN_PARALLEL = 4;
+const UPLOAD_PARALLEL = 3;
 const ORIGINAL_BUCKET = "travel-memories";
 const THUMBNAIL_BUCKET = "travel-thumbnails";
 const favouriteKey = (userId: string) => `golden-atlas:favourite-country:${userId}`;
@@ -76,24 +81,33 @@ export function createSupabaseBackend(): AtlasBackend {
 
   async function signPaths(bucket: string, paths: string[]) {
     const signed = new Map<string, string>();
-    for (let index = 0; index < paths.length; index += SIGN_BATCH) {
-      const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths.slice(index, index + SIGN_BATCH), SIGNED_URL_SECONDS);
-      if (error || !data) continue; // Images fail soft; metadata still renders and the next refresh retries.
+    const batches: string[][] = [];
+    for (let index = 0; index < paths.length; index += SIGN_BATCH) batches.push(paths.slice(index, index + SIGN_BATCH));
+    await runPool(batches, SIGN_PARALLEL, async (batch) => {
+      const { data, error } = await sb.storage.from(bucket).createSignedUrls(batch, SIGNED_URL_SECONDS);
+      if (error || !data) return; // Images fail soft; metadata still renders and the next refresh retries.
       data.forEach((item) => { if (item.path && item.signedUrl) signed.set(item.path, item.signedUrl); });
-    }
+    });
     return signed;
   }
 
-  async function signMemories(memories: Array<Pick<MemoryRow, "id" | "original_path" | "thumbnail_path">>) {
+  /**
+   * Thumbnails are all a grid needs, so they are signed first and the app opens quickly; originals follow in the
+   * background. Until an original is ready the thumbnail stands in for it.
+   */
+  async function signMemories(memories: Array<Pick<MemoryRow, "id" | "original_path" | "thumbnail_path">>, scope: "thumbnails" | "originals" | "all" = "all") {
     memories.forEach((memory) => pathIndex.set(memory.id, { original: memory.original_path, thumbnail: memory.thumbnail_path }));
     const [originals, thumbnails] = await Promise.all([
-      signPaths(ORIGINAL_BUCKET, memories.map((memory) => memory.original_path)),
-      signPaths(THUMBNAIL_BUCKET, memories.map((memory) => memory.thumbnail_path)),
+      scope === "thumbnails" ? new Map<string, string>() : signPaths(ORIGINAL_BUCKET, memories.map((memory) => memory.original_path)),
+      scope === "originals" ? new Map<string, string>() : signPaths(THUMBNAIL_BUCKET, memories.map((memory) => memory.thumbnail_path)),
     ]);
-    return new Map<string, MediaUrls>(memories.map((memory) => [memory.id, {
-      url: originals.get(memory.original_path) ?? "",
-      thumbnailUrl: thumbnails.get(memory.thumbnail_path) ?? "",
-    }]));
+    return new Map<string, MediaUrls>(memories.map((memory): [string, MediaUrls] => {
+      const original = originals.get(memory.original_path);
+      const thumbnail = thumbnails.get(memory.thumbnail_path);
+      if (scope === "thumbnails") return [memory.id, { url: thumbnail, thumbnailUrl: thumbnail }];
+      if (scope === "originals") return [memory.id, { url: original }];
+      return [memory.id, { url: original, thumbnailUrl: thumbnail }];
+    }));
   }
 
   // --- loading -------------------------------------------------------------
@@ -124,7 +138,7 @@ export function createSupabaseBackend(): AtlasBackend {
       }),
     ]);
 
-    const urls = await signMemories(memoryRows);
+    const urls = await signMemories(memoryRows, "thumbnails");
     const group = <T extends { trip_id: string }>(rows: T[]) => rows.reduce((map, row) => map.set(row.trip_id, [...(map.get(row.trip_id) ?? []), row]), new Map<string, T[]>());
     const memoriesByTrip = group(memoryRows);
     const placesByTrip = group(placeRows);
@@ -142,7 +156,7 @@ export function createSupabaseBackend(): AtlasBackend {
     }));
   }
 
-  async function loadState(userId: string): Promise<AppState> {
+  async function loadState(userId: string, favouriteCountryId?: string): Promise<AppState> {
     const [trips, bucket] = await Promise.all([
       loadTrips(),
       fetchAll<{ country_code: string }>((from, to) => sb.from("bucket_list").select("country_code").order("country_code").range(from, to)),
@@ -152,7 +166,7 @@ export function createSupabaseBackend(): AtlasBackend {
       userId,
       trips,
       bucketListIds: bucket.map((row) => row.country_code),
-      favouriteCountryId: localStorage.getItem(favouriteKey(userId)) ?? undefined,
+      favouriteCountryId,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -171,14 +185,37 @@ export function createSupabaseBackend(): AtlasBackend {
     return { id: authUser.id, name: name || email.split("@")[0] || "Traveller", email, isDemo: false, createdAt: authUser.created_at };
   }
 
+  let currentUserId = "";
+
   async function openSession(authUser: User): Promise<AtlasSession> {
     const user = await loadUser(authUser);
-    return { user, state: await loadState(user.id) };
+    currentUserId = user.id;
+    // Settings must never stop the atlas from opening, so a failed read just means defaults for now.
+    const preferenceRow = await sb.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle().then((result) => result.data, () => null);
+    let favourite = getCountry(preferenceRow?.favourite_country_code)?.id;
+
+    // Earlier versions kept the favourite country on the device only; move it to the account once.
+    const legacy = localStorage.getItem(favouriteKey(user.id));
+    if (legacy) {
+      const legacyId = getCountry(legacy)?.id;
+      if (!favourite && legacyId) {
+        const moved = await sb.from("user_preferences").update({ favourite_country_code: legacyId }).eq("user_id", user.id);
+        if (!moved.error) favourite = legacyId;
+      }
+      if (favourite) localStorage.removeItem(favouriteKey(user.id));
+    }
+
+    return {
+      user,
+      state: await loadState(user.id, favourite),
+      preferences: preferenceRow ? { values: preferencesFromRow(preferenceRow), untouched: isUntouchedRow(preferenceRow) } : undefined,
+    };
   }
 
   function clearCaches() {
     pathIndex.clear();
     countryNames.clear();
+    currentUserId = "";
   }
 
   // --- trip persistence ----------------------------------------------------
@@ -196,7 +233,7 @@ export function createSupabaseBackend(): AtlasBackend {
     const plan = planDaySync(existing ?? [], tripDays(trip));
     if (plan.toUpsert.length) {
       const saved = await sb.from("trip_days").upsert(
-        plan.toUpsert.map((day) => ({ trip_id: trip.id, day_date: day.date, title: day.title?.trim() || null, notes: day.notes || null })),
+        plan.toUpsert.map((day) => ({ trip_id: trip.id, day_date: day.date, title: day.title?.trim() || null, notes: day.notes || null, places: day.places ?? [] })),
         { onConflict: "trip_id,day_date" },
       );
       if (saved.error) throw dbError(saved.error);
@@ -224,6 +261,17 @@ export function createSupabaseBackend(): AtlasBackend {
     }
   }
 
+  /** Uploads one object, retrying transient failures. "Already exists" means an earlier attempt landed, which is fine. */
+  async function putObject(bucket: string, path: string, body: Blob) {
+    await withRetry(async () => {
+      const { error } = await sb.storage.from(bucket).upload(path, body, { contentType: "image/jpeg", cacheControl: "0", upsert: false });
+      if (!error) return;
+      const detail = error as { statusCode?: string | number; message?: string };
+      if (String(detail.statusCode) === "409" || /already exists|duplicate/i.test(detail.message ?? "")) return;
+      throw error;
+    }, { attempts: 3, delayMs: 500 });
+  }
+
   async function uploadMemory(tripId: string, photo: Trip["photos"][number], order: number, asset: PhotoAsset) {
     const pending = await sb.from("memories").insert({
       id: photo.id,
@@ -237,11 +285,10 @@ export function createSupabaseBackend(): AtlasBackend {
     }).select("id,original_path,thumbnail_path").single();
     if (pending.error) throw dbError(pending.error);
     try {
-      const original = await sb.storage.from(ORIGINAL_BUCKET).upload(pending.data.original_path, asset.original, { contentType: "image/jpeg", cacheControl: "0", upsert: false });
-      if (original.error) throw new Error(GENERIC_MESSAGE);
-      const thumbnail = await sb.storage.from(THUMBNAIL_BUCKET).upload(pending.data.thumbnail_path, asset.thumbnail, { contentType: "image/jpeg", cacheControl: "0", upsert: false });
-      if (thumbnail.error) throw new Error(GENERIC_MESSAGE);
-      await callFunction("finalize-memory-upload", { memory_id: photo.id });
+      await putObject(ORIGINAL_BUCKET, pending.data.original_path, asset.original);
+      await putObject(THUMBNAIL_BUCKET, pending.data.thumbnail_path, asset.thumbnail);
+      // Finalizing is idempotent, so a dropped response can safely be retried.
+      await withRetry(() => callFunction("finalize-memory-upload", { memory_id: photo.id }), { attempts: 2, delayMs: 500 });
     } catch (failure) {
       // Remove the half-finished record and any uploaded object; the abandoned-upload worker is the safety net.
       await callFunction("delete-memory", { memory_id: photo.id }).catch(() => undefined);
@@ -249,7 +296,7 @@ export function createSupabaseBackend(): AtlasBackend {
     }
   }
 
-  async function syncPhotos(existing: Trip["photos"], trip: Trip, assets: PhotoAsset[]) {
+  async function syncPhotos(existing: Trip["photos"], trip: Trip, assets: PhotoAsset[], onProgress?: (progress: SaveProgress) => void) {
     const assetById = new Map(assets.map((asset) => [asset.id, asset]));
     const plan = planPhotoChanges(existing, trip.photos, new Set(assetById.keys()));
     const failures: string[] = [];
@@ -261,16 +308,27 @@ export function createSupabaseBackend(): AtlasBackend {
       const updated = await sb.from("memories").update(memoryUpdate(photo, order)).eq("id", photo.id);
       if (updated.error) failures.push("update");
     }
-    for (const { photo, order } of plan.toInsert) {
-      try { await uploadMemory(trip.id, photo, order, assetById.get(photo.id)!); } catch { failures.push("upload"); }
-    }
+    // A few uploads at a time: faster than one by one, gentler on a weak connection than all at once.
+    const failedPhotoIds: string[] = [];
+    const total = plan.toInsert.length;
+    let done = 0;
+    if (total) onProgress?.({ stage: "photos", done, total });
+    const uploads = await runPool(plan.toInsert, UPLOAD_PARALLEL, async ({ photo, order }) => {
+      try { await uploadMemory(trip.id, photo, order, assetById.get(photo.id)!); }
+      finally { done += 1; onProgress?.({ stage: "photos", done, total }); }
+    });
+    uploads.forEach((result, index) => {
+      if (result.ok) return;
+      failures.push("upload");
+      failedPhotoIds.push(plan.toInsert[index].photo.id);
+    });
 
     const count = (kind: string) => failures.filter((item) => item === kind).length;
     const warnings: string[] = [];
-    if (count("upload")) warnings.push(`${count("upload")} ${count("upload") === 1 ? "photo" : "photos"} couldn’t be uploaded. Your trip is saved; add ${count("upload") === 1 ? "it" : "them"} again from Edit trip.`);
+    if (count("upload")) warnings.push(`${count("upload")} ${count("upload") === 1 ? "photo" : "photos"} couldn’t be uploaded. Your trip is saved; use Retry on the trip page to try ${count("upload") === 1 ? "it" : "them"} again.`);
     if (count("remove")) warnings.push(`${count("remove")} ${count("remove") === 1 ? "photo" : "photos"} couldn’t be removed yet. Try again from Edit trip.`);
     if (count("update")) warnings.push(`${count("update")} photo ${count("update") === 1 ? "change" : "changes"} couldn’t be saved. Try again from Edit trip.`);
-    return warnings;
+    return { warnings, failedPhotoIds };
   }
 
   // --- backend contract ----------------------------------------------------
@@ -328,7 +386,8 @@ export function createSupabaseBackend(): AtlasBackend {
       if (error) throw authError(error);
     },
 
-    async saveTrip(state, trip, assets) {
+    async saveTrip(state, trip, assets, onProgress) {
+      onProgress?.({ stage: "details", done: 0, total: 0 });
       const problems = validateRemoteTrip(trip);
       if (problems.length) throw new Error(problems.join(" "));
       const existing = state.trips.find((item) => item.id === trip.id);
@@ -340,7 +399,11 @@ export function createSupabaseBackend(): AtlasBackend {
         if (!updated.data?.length) throw new Error(describeDatabaseError({ code: "PGRST116" }));
       } else {
         const inserted = await sb.from("trips").insert({ id: trip.id, country_code, ...changes });
-        if (inserted.error) throw dbError(inserted.error);
+        if (inserted.error?.code === "23505") {
+          // An earlier attempt with this id got as far as saving the trip; carry on from there rather than failing.
+          const repeated = await sb.from("trips").update(changes).eq("id", trip.id).select("id");
+          if (repeated.error) throw dbError(repeated.error);
+        } else if (inserted.error) throw dbError(inserted.error);
       }
 
       // The trip row now exists. Failures below are reported as warnings instead of errors so the UI reflects the
@@ -349,12 +412,13 @@ export function createSupabaseBackend(): AtlasBackend {
       try { await syncPlaces(trip); } catch { warnings.push("Cities and places couldn’t be saved. Open Edit trip to try again."); }
       try { await syncDays(existing?.days, trip); } catch { warnings.push("Some day notes couldn’t be saved. Open Edit trip to try again."); }
       try { await syncCompanions(trip); } catch { warnings.push("Travel companions couldn’t be saved. Open Edit trip to try again."); }
-      warnings.push(...await syncPhotos(existing?.photos ?? [], trip, assets));
+      const photoSync = await syncPhotos(existing?.photos ?? [], trip, assets, onProgress);
+      warnings.push(...photoSync.warnings);
 
       const [fresh] = await loadTrips([trip.id]);
       if (!fresh) throw new Error(GENERIC_MESSAGE);
       const trips = sortTrips([...state.trips.filter((item) => item.id !== trip.id), fresh]);
-      return { state: { ...state, trips, updatedAt: new Date().toISOString() }, warnings };
+      return { state: { ...state, trips, updatedAt: new Date().toISOString() }, warnings, failedPhotoIds: photoSync.failedPhotoIds };
     },
 
     async deleteTrip(state, tripId) {
@@ -388,10 +452,9 @@ export function createSupabaseBackend(): AtlasBackend {
       return { ...state, bucketListIds: included ? state.bucketListIds.filter((id) => id !== countryId) : [...state.bucketListIds, countryId] };
     },
 
-    // The schema has no favourite-country column yet, so this preference is kept on this device only.
     async setFavouriteCountry(state, countryId) {
-      if (countryId) localStorage.setItem(favouriteKey(state.userId), countryId);
-      else localStorage.removeItem(favouriteKey(state.userId));
+      const { error } = await sb.from("user_preferences").update({ favourite_country_code: countryId ?? null }).eq("user_id", state.userId);
+      if (error) throw dbError(error);
       return { ...state, favouriteCountryId: countryId };
     },
 
@@ -429,12 +492,19 @@ export function createSupabaseBackend(): AtlasBackend {
       await sb.auth.signOut({ scope: "local" }).catch(() => undefined);
     },
 
-    async refreshMedia(photoIds) {
+    async savePreferences(patch) {
+      const row = rowPatchFromPreferences(patch);
+      if (!Object.keys(row).length || !currentUserId) return;
+      const { error } = await sb.from("user_preferences").update(row).eq("user_id", currentUserId);
+      if (error) throw dbError(error);
+    },
+
+    async refreshMedia(photoIds, scope = "all") {
       const memories = photoIds.flatMap((id) => {
         const paths = pathIndex.get(id);
         return paths ? [{ id, original_path: paths.original, thumbnail_path: paths.thumbnail }] : [];
       });
-      return signMemories(memories);
+      return signMemories(memories, scope);
     },
 
     async exportData() {

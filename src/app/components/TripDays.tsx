@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Camera, ChevronDown, Folder, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronDown, Folder, FolderOpen, Image as ImageIcon, MapPin, Play, Plus, Trash2, X } from "lucide-react";
 import type { MemoryPhoto, Trip } from "../types/domain";
-import { addDays, addDayToTrip, canRemoveLastDay, dayFolders, movePhotoToDay, removeLastDay, todayISO, updateDay, updatePhoto, type DayFolder } from "../lib/trip-days";
+import { setCoverPhoto } from "../lib/trip-extras";
+import { addDays, addDayToTrip, addPlaceToDay, canRemoveLastDay, dayFolders, movePhotoToDay, removeLastDay, routeLabel, toggleDayPlace, todayISO, updateDay, updatePhoto, type DayFolder } from "../lib/trip-days";
 
 interface TripDaysProps {
   /** The draft while editing, otherwise the saved trip. */
@@ -13,6 +14,7 @@ interface TripDaysProps {
   /** Outside edit mode, adding a day saves the longer trip straight away. */
   onAddDayNow: () => void;
   onOpenPhoto: (photoId: string) => void;
+  onPlayDay?: (date: string) => void;
 }
 
 const inputStyle = { borderColor: "var(--border)", color: "var(--foreground)" } as const;
@@ -21,7 +23,30 @@ const labelStyle = { color: "var(--muted-foreground)" } as const;
 const dayLabel = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 const countLabel = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
-export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayNow, onOpenPhoto }: TripDaysProps) {
+/** A small input that adds a new place to the trip and to one day. */
+function AddPlaceInput({ onAdd }: { onAdd: (name: string) => void }) {
+  const [text, setText] = useState("");
+  const submit = () => { if (text.trim()) { onAdd(text); setText(""); } };
+  return (
+    <div className="flex gap-2">
+      <input
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } }}
+        maxLength={180}
+        placeholder="Add a place you visited"
+        aria-label="Add a place you visited this day"
+        className="h-10 min-w-0 flex-1 rounded-xl border bg-transparent px-3 text-sm"
+        style={inputStyle}
+      />
+      <button type="button" onClick={submit} disabled={!text.trim()} className="flex h-10 w-10 items-center justify-center rounded-xl disabled:opacity-40" style={{ background: "var(--gold-light)", color: "var(--gold)" }} aria-label="Add place">
+        <Plus size={16} />
+      </button>
+    </div>
+  );
+}
+
+export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayNow, onOpenPhoto, onPlayDay }: TripDaysProps) {
   const { days, otherPhotos, truncated } = dayFolders(trip);
   const today = todayISO();
   const [open, setOpen] = useState<Set<string>>(() => new Set(days[0] ? [days[0].date] : []));
@@ -69,6 +94,13 @@ export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayN
               style={inputStyle}
             />
             {moveTargets(photo)}
+            {trip.photos[0]?.id === photo.id
+              ? <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--gold)" }}><ImageIcon size={13} /> Trip cover</p>
+              : (
+                <button type="button" onClick={() => onChange(setCoverPhoto(trip, photo.id))} className="flex min-h-9 items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--muted-foreground)" }} aria-label={`Use ${photo.caption || "this photo"} as the trip cover`}>
+                  <ImageIcon size={13} /> Make cover
+                </button>
+              )}
           </div>
           <button
             type="button"
@@ -137,7 +169,8 @@ export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayN
   const renderDay = (day: DayFolder) => {
     const isOpen = open.has(day.date);
     const planning = day.date > today;
-    const subtitle = [dayLabel(day.date), countLabel(day.photos.length, "photo"), day.notes.trim() ? (planning ? "plan" : "diary") : ""].filter(Boolean).join(" · ");
+    const subtitle = [dayLabel(day.date), countLabel(day.photos.length, "photo"), day.places.length ? countLabel(day.places.length, "place") : "", day.notes.trim() ? (planning ? "plan" : "diary") : ""].filter(Boolean).join(" · ");
+    const placeOptions = [...new Set([...trip.places, ...day.places].map((name) => name.trim()).filter(Boolean))];
     return (
       <div key={day.date} className="overflow-hidden rounded-2xl" style={{ background: "var(--card)" }}>
         {folderHeader(day.date, isOpen, `Day ${day.number}${day.title ? ` · ${day.title}` : ""}`, subtitle, day.photos)}
@@ -168,15 +201,46 @@ export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayN
                     style={inputStyle}
                   />
                 </label>
+                <div>
+                  <p className="mb-1.5 text-xs" style={labelStyle}>Places that day. Tap them in the order you went.</p>
+                  {placeOptions.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {placeOptions.map((name) => {
+                        const position = day.places.findIndex((place) => place.toLowerCase() === name.toLowerCase());
+                        const on = position >= 0;
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => onChange(toggleDayPlace(trip, day.date, name))}
+                            className="flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold"
+                            style={{ borderColor: on ? "var(--gold)" : "var(--border)", background: on ? "var(--gold-light)" : "transparent", color: "var(--foreground)" }}
+                          >
+                            <MapPin size={12} style={{ color: on ? "var(--gold)" : "var(--muted-foreground)" }} />
+                            {on ? `${position + 1}. ` : ""}{name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <AddPlaceInput onAdd={(name) => onChange(addPlaceToDay(trip, day.date, name))} />
+                </div>
                 {day.photos.length > 0 && editablePhotos(day.photos)}
                 {addPhotosButton(day.date)}
               </>
             ) : (
               <>
+                {day.places.length > 0 && <p className="flex items-start gap-2 text-sm font-medium"><MapPin size={15} className="mt-0.5 flex-shrink-0" style={{ color: "var(--gold)" }} /><span>{routeLabel(day.places)}</span></p>}
                 {day.notes.trim()
                   ? <p className="whitespace-pre-wrap text-sm leading-6">{day.notes}</p>
                   : <p className="text-sm" style={labelStyle}>{planning ? "No plan for this day yet. Tap Edit to add one." : "No diary for this day yet. Tap Edit to write one."}</p>}
                 {day.photos.length > 0 && readOnlyPhotos(day.photos)}
+                {day.photos.length > 0 && onPlayDay && (
+                  <button type="button" onClick={() => onPlayDay(day.date)} className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold" style={{ background: "var(--gold-light)", color: "var(--gold)" }}>
+                    <Play size={14} fill="currentColor" /> Play this day
+                  </button>
+                )}
               </>
             )}
           </div>

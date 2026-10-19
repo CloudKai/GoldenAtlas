@@ -25,6 +25,8 @@ export function SlideshowScreen() {
     const type = searchParams.get("scope");
     const id = searchParams.get("id") ?? "";
     if (type === "trip") return { type: "trip", tripId: id };
+    if (type === "day") return { type: "day", tripId: id, date: searchParams.get("date") ?? "" };
+    if (type === "onThisDay") return { type: "onThisDay" };
     if (type === "country") return { type: "country", countryId: id };
     if (type === "favourites") return { type: "favourites" };
     if (type === "selection") return { type: "selection", photoIds: (searchParams.get("photoIds") ?? "").split(",").filter(Boolean) };

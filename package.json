@@ -11,6 +11,7 @@
     "build": "vite build",
     "dev": "vite",
     "test:unit": "node scripts/run-unit-tests.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify:prototype": "npm run test:unit && npm run build",
     "backend:start": "supabase start --yes",
     "backend:stop": "supabase stop",

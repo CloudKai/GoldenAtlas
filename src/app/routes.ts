@@ -14,6 +14,7 @@ import { AddTripScreen } from "./components/AddTripScreen";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { MemoriesScreen } from "./components/MemoriesScreen";
 import { TripDetailScreen } from "./components/TripDetailScreen";
+import { TripBookScreen } from "./components/TripBookScreen";
 import { LegalScreen } from "./components/LegalScreen";
 import { AuthCallbackScreen } from "./components/AuthCallbackScreen";
 import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
       {
         Component: ProtectedRoute,
         children: [
+          { path: "/trip-book/:tripId", Component: TripBookScreen },
           {
             path: "/app",
             Component: AppLayout,

@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Calendar, Edit3, Heart, MapPin, Play, Save, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, Edit3, Heart, MapPin, Play, Save, Star, Trash2, Users, Wallet, X } from "lucide-react";
 import { useAppData } from "../contexts/AppDataContext";
 import { sanitizePhoto, type PhotoAsset } from "../lib/local-repository";
 import { validateTrip } from "../lib/selectors";
 import type { Trip } from "../types/domain";
 import { CITY_OPTIONS } from "../data/city-visits";
 import { TripDays } from "./TripDays";
-import { addDayToTrip, daysUntil, tripStatus } from "../lib/trip-days";
+import { CompanionsField, ExpenseField } from "./TripExtras";
+import { getCountry } from "../data/countries";
+import { formatMoney } from "../lib/trip-extras";
+import { addDayToTrip, daysUntil, todayISO, tripStatus } from "../lib/trip-days";
+import { applyEditDraft, clearDraft, editDraftDiffers, loadDraft, saveDraft, toEditDraft, type DraftEnvelope, type TripEditDraft } from "../lib/drafts";
+import { failedUploadsFor } from "../lib/pending-uploads";
+import type { SaveProgress } from "../lib/backend";
 
 export function TripDetailScreen() {
   const { tripId } = useParams();
@@ -21,20 +27,59 @@ export function TripDetailScreen() {
   const [message, setMessage] = useState(() => (location.state as { notice?: string } | null)?.notice ?? "");
   const [showItinerary, setShowItinerary] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [restorable, setRestorable] = useState<DraftEnvelope<TripEditDraft> | null>(null);
+  const editKey = user && tripId ? `trip-edit:${user.id}:${tripId}` : null;
   useEffect(() => { if (!editing && source) setDraft(structuredClone(source)); }, [source, editing]);
+  // Edits are kept on this device while you write, so a dropped connection or closed tab does not lose a diary entry.
+  useEffect(() => {
+    if (!editing || !editKey || !draft || !source || restorable) return;
+    const current = toEditDraft(draft);
+    if (!editDraftDiffers(source, current)) return;
+    const timer = window.setTimeout(() => saveDraft(editKey, current), 700);
+    return () => window.clearTimeout(timer);
+  }, [editing, editKey, draft, source, restorable]);
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => { if (editing) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler);
   }, [editing]);
   if (!source || !draft) return <div className="flex h-full flex-col items-center justify-center bg-background px-6 text-center"><h1 className="text-lg font-semibold">Trip not found</h1><button onClick={() => navigate("/app/trips")} className="mt-4 h-11 px-4" style={{ color: "var(--gold)" }}>Back to Trips</button></div>;
-  const leave = () => { if (!editing || window.confirm("Discard your unsaved changes?")) navigate(-1); };
+  const leave = () => {
+    if (editing && !window.confirm("Discard your unsaved changes?")) return;
+    if (editing && editKey) clearDraft(editKey);
+    navigate(-1);
+  };
+  const startEditing = () => {
+    const found = editKey ? loadDraft<TripEditDraft>(editKey) : null;
+    setRestorable(found && editDraftDiffers(source, found.data) ? found : null);
+    setEditing(true);
+  };
+  const showProgress = (update: SaveProgress) => setMessage(update.stage === "photos" ? `${update.done} of ${update.total} photos uploaded…` : "Saving…");
   const save = async () => {
     const errors = validateTrip(draft);
     if (errors.length) return setMessage(errors.join(" "));
+    setBusy(true);
     try {
-      const warnings = await saveTrip({ ...draft, duration: Math.max(1, Math.round((new Date(draft.endDate).getTime() - new Date(draft.startDate).getTime()) / 86400000) + 1), coverImage: draft.photos[0]?.url || draft.coverImage }, assets.filter((asset) => draft.photos.some((photo) => photo.id === asset.id)));
-      setAssets([]); setEditing(false); setMessage(warnings.length ? warnings.join(" ") : "Trip updated.");
+      const outcome = await saveTrip(
+        { ...draft, duration: Math.max(1, Math.round((new Date(draft.endDate).getTime() - new Date(draft.startDate).getTime()) / 86400000) + 1), coverImage: draft.photos[0]?.url || draft.coverImage },
+        assets.filter((asset) => draft.photos.some((photo) => photo.id === asset.id)),
+        showProgress,
+      );
+      setAssets([]); setEditing(false); setRestorable(null);
+      if (editKey) clearDraft(editKey);
+      setMessage(outcome.warnings.length ? outcome.warnings.join(" ") : "Trip updated.");
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : "The trip could not be saved. Your changes are still here; try again."); }
+    finally { setBusy(false); }
+  };
+  const failedUploads = failedUploadsFor(source.id);
+  const retryUploads = async () => {
+    setBusy(true);
+    try {
+      const outcome = await saveTrip({ ...source, photos: [...source.photos, ...failedUploads.map((upload) => upload.photo)] }, failedUploads.map((upload) => upload.asset), showProgress);
+      setMessage(outcome.failedPhotoIds.length
+        ? `${outcome.failedPhotoIds.length} ${outcome.failedPhotoIds.length === 1 ? "photo" : "photos"} still couldn’t be uploaded. Check your connection and retry.`
+        : "All photos uploaded.");
+    } catch (reason) { setMessage(reason instanceof Error ? reason.message : "The upload could not be retried. Try again."); }
+    finally { setBusy(false); }
   };
   // Photos are added to a specific day folder; they are processed in the browser (location data is removed) before saving.
   const addPhotosToDay = async (files: File[], date: string) => {
@@ -53,18 +98,21 @@ export function TripDetailScreen() {
   const addDayNow = async () => {
     setBusy(true);
     try {
-      const warnings = await saveTrip(addDayToTrip(source), []);
-      setMessage(warnings.length ? warnings.join(" ") : `Day ${source.duration + 1} added.`);
+      const outcome = await saveTrip(addDayToTrip(source), []);
+      setMessage(outcome.warnings.length ? outcome.warnings.join(" ") : `Day ${source.duration + 1} added.`);
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : "The day could not be added. Try again."); }
     finally { setBusy(false); }
   };
   const status = tripStatus(source);
   return <div className="flex h-full flex-col bg-background">
-    <header className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "var(--border)" }}><button onClick={leave} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: "var(--muted)" }} aria-label="Back"><ArrowLeft size={20}/></button><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{editing ? "Edit trip" : source.title}</p><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{source.countryFlag} {source.country}</p></div>{editing ? <button onClick={save} className="flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold" style={{ background: "var(--gold)", color: "#1a1814" }}><Save size={16}/>Save</button> : <button onClick={() => setEditing(true)} className="flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold" style={{ borderColor: "var(--border)" }}><Edit3 size={16}/>Edit</button>}</header>
-    <main className="flex-1 overflow-y-auto pb-8">{message && <p role="status" className="mx-5 mt-4 rounded-xl p-3 text-sm" style={{ background: "var(--gold-light)", color: "var(--foreground)" }}>{message}</p>}<div className="relative mx-5 mt-5 h-52 overflow-hidden rounded-3xl"><img src={draft.coverImage} alt="" className="h-full w-full object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent"/><div className="absolute bottom-4 left-4 right-4 text-white"><p className="text-2xl font-semibold">{source.mood} {source.title}</p><p className="mt-1 text-sm text-white/70">{source.city}</p>{status !== "past" && <p className="mt-2 inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">{status === "upcoming" ? `Upcoming · starts in ${daysUntil(source)} ${daysUntil(source) === 1 ? "day" : "days"}` : "Happening now"}</p>}</div></div>
+    <header className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "var(--border)" }}><button onClick={leave} className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: "var(--muted)" }} aria-label="Back"><ArrowLeft size={20}/></button><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{editing ? "Edit trip" : source.title}</p><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{source.countryFlag} {source.country}</p></div>{editing ? <button onClick={save} disabled={busy} className="flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:opacity-60" style={{ background: "var(--gold)", color: "#1a1814" }}><Save size={16}/>Save</button> : <button onClick={startEditing} className="flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold" style={{ borderColor: "var(--border)" }}><Edit3 size={16}/>Edit</button>}</header>
+    <main className="flex-1 overflow-y-auto pb-8">{message && <p role="status" className="mx-5 mt-4 rounded-xl p-3 text-sm" style={{ background: "var(--gold-light)", color: "var(--foreground)" }}>{message}</p>}
+      {failedUploads.length > 0 && !editing && <div role="alert" className="mx-5 mt-4 flex flex-wrap items-center gap-3 rounded-xl p-3 text-sm" style={{ background: "rgba(226,85,85,.1)" }}><span className="min-w-0 flex-1">{failedUploads.length} {failedUploads.length === 1 ? "photo" : "photos"} didn’t upload. Your trip is saved.</span><button onClick={retryUploads} disabled={busy} className="h-10 rounded-lg px-4 font-semibold disabled:opacity-60" style={{ background: "var(--gold)", color: "#1a1814" }}>Retry upload</button></div>}
+      {editing && restorable && <div role="status" className="mx-5 mt-4 flex flex-wrap items-center gap-3 rounded-xl p-3 text-sm" style={{ background: "var(--gold-light)" }}><span className="min-w-0 flex-1">You have unsaved edits from {new Date(restorable.savedAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}.</span><button onClick={() => { setDraft(applyEditDraft(draft, restorable.data)); setRestorable(null); }} className="h-10 rounded-lg px-3 font-semibold" style={{ background: "var(--gold)", color: "#1a1814" }}>Restore</button><button onClick={() => { if (editKey) clearDraft(editKey); setRestorable(null); }} className="h-10 rounded-lg border px-3 font-semibold" style={{ borderColor: "var(--border)" }}>Discard</button></div>}<div className="relative mx-5 mt-5 h-52 overflow-hidden rounded-3xl"><img src={draft.photos[0]?.url || draft.coverImage} alt="" className="h-full w-full object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent"/><div className="absolute bottom-4 left-4 right-4 text-white"><p className="text-2xl font-semibold">{source.mood} {source.title}</p><p className="mt-1 text-sm text-white/70">{source.city}</p>{status !== "past" && <p className="mt-2 inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur">{status === "upcoming" ? `Upcoming · starts in ${daysUntil(source)} ${daysUntil(source) === 1 ? "day" : "days"}` : "Happening now"}</p>}</div></div>
       <div className="mx-5 mt-4 flex gap-2"><button onClick={() => toggleTripFavourite(source.id)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border font-semibold" style={{ borderColor: source.isFavourite ? "var(--gold)" : "var(--border)", color: source.isFavourite ? "var(--gold)" : "var(--foreground)" }}><Heart size={17} fill={source.isFavourite ? "currentColor" : "none"}/>{source.isFavourite ? "Favourited" : "Favourite"}</button><button onClick={() => navigate(`/app/slideshow?scope=trip&id=${source.id}`)} disabled={!source.photos.length} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl font-semibold disabled:opacity-40" style={{ background: "var(--gold)", color: "#1a1814" }}><Play size={17} fill="currentColor"/>Slideshow</button></div>
-      <section className="mx-5 mt-6"><h2 className="mb-3 text-xs font-bold uppercase tracking-[.14em]" style={{ color: "var(--muted-foreground)" }}>Trip details</h2><div className="space-y-3 rounded-2xl p-4" style={{ background: "var(--card)" }}>{editing ? <><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Trip name<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-3 text-sm" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><div className="grid grid-cols-2 gap-2"><label className="text-xs" style={{ color: "var(--muted-foreground)" }}>Start date<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><label className="text-xs" style={{ color: "var(--muted-foreground)" }}>End date<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label></div><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Journal<textarea value={draft.journal} onChange={(event) => setDraft({ ...draft, journal: event.target.value })} rows={6} className="mt-1 w-full rounded-xl border bg-transparent p-3 text-sm leading-6" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Rating<select value={draft.rating} onChange={(event) => setDraft({ ...draft, rating: Number(event.target.value) })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-3" style={{ borderColor: "var(--border)" }}>{[1,2,3,4,5].map((rating) => <option key={rating} value={rating}>{rating} stars</option>)}</select></label></> : <><p className="flex items-center gap-3 text-sm"><Calendar size={17} color="var(--gold)"/>{new Date(`${source.startDate}T00:00:00`).toLocaleDateString()} – {new Date(`${source.endDate}T00:00:00`).toLocaleDateString()} · {source.duration} days</p><p className="flex items-center gap-3 text-sm"><MapPin size={17} color="var(--gold)"/>{source.stops.length ? source.stops.map((stop) => stop.city).join(" · ") : "No city stops recorded"}</p><p className="flex items-center gap-3 text-sm"><Star size={17} color="var(--gold)" fill="var(--gold)"/>{source.rating} out of 5</p></>}</div></section>
-      <TripDays trip={draft} editing={editing} busy={busy} onChange={setDraft} onAddPhotos={addPhotosToDay} onAddDayNow={addDayNow} onOpenPhoto={(photoId) => navigate(`/app/memories/${photoId}`)} />
+      {!editing && <button onClick={() => navigate(`/trip-book/${source.id}`)} className="mx-5 mt-2 flex h-12 w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-xl border font-semibold" style={{ borderColor: "var(--border)" }}><BookOpen size={17}/>Trip book · print or save as PDF</button>}
+      <section className="mx-5 mt-6"><h2 className="mb-3 text-xs font-bold uppercase tracking-[.14em]" style={{ color: "var(--muted-foreground)" }}>Trip details</h2><div className="space-y-3 rounded-2xl p-4" style={{ background: "var(--card)" }}>{editing ? <><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Trip name<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-3 text-sm" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><div className="grid grid-cols-2 gap-2"><label className="text-xs" style={{ color: "var(--muted-foreground)" }}>Start date<input type="date" value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><label className="text-xs" style={{ color: "var(--muted-foreground)" }}>End date<input type="date" value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label></div><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Journal<textarea value={draft.journal} onChange={(event) => setDraft({ ...draft, journal: event.target.value })} rows={6} className="mt-1 w-full rounded-xl border bg-transparent p-3 text-sm leading-6" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}/></label><label className="block text-xs" style={{ color: "var(--muted-foreground)" }}>Rating<select value={draft.rating} onChange={(event) => setDraft({ ...draft, rating: Number(event.target.value) })} className="mt-1 h-11 w-full rounded-xl border bg-transparent px-3" style={{ borderColor: "var(--border)" }}>{[1,2,3,4,5].map((rating) => <option key={rating} value={rating}>{rating} stars</option>)}</select></label><CompanionsField value={draft.companions} onChange={(companions) => setDraft({ ...draft, companions })} /><ExpenseField value={draft.expense} onChange={(expense) => setDraft({ ...draft, expense })} defaultCurrency={getCountry(draft.countryId)?.currency} planned={draft.startDate > todayISO()} /></> : <><p className="flex items-center gap-3 text-sm"><Calendar size={17} color="var(--gold)"/>{new Date(`${source.startDate}T00:00:00`).toLocaleDateString()} – {new Date(`${source.endDate}T00:00:00`).toLocaleDateString()} · {source.duration} days</p><p className="flex items-center gap-3 text-sm"><MapPin size={17} color="var(--gold)"/>{source.stops.length ? source.stops.map((stop) => stop.city).join(" · ") : "No city stops recorded"}</p><p className="flex items-center gap-3 text-sm"><Star size={17} color="var(--gold)" fill="var(--gold)"/>{source.rating} out of 5</p>{source.companions.length > 0 && <p className="flex items-center gap-3 text-sm"><Users size={17} color="var(--gold)"/>With {source.companions.join(", ")}</p>}{source.expense && <p className="flex items-center gap-3 text-sm"><Wallet size={17} color="var(--gold)"/>{status === "upcoming" ? "Budget" : "Spent"} {formatMoney(source.expense.amount, source.expense.currency)}</p>}</>}</div></section>
+      <TripDays trip={draft} editing={editing} busy={busy} onChange={setDraft} onAddPhotos={addPhotosToDay} onAddDayNow={addDayNow} onOpenPhoto={(photoId) => navigate(`/app/memories/${photoId}`)} onPlayDay={(date) => navigate(`/app/slideshow?scope=day&id=${source.id}&date=${date}`)} />
       {editing && <button onClick={async () => { if (window.confirm(`Delete “${source.title}” and its stored photos? This cannot be undone.`)) { try { await deleteTrip(source.id); navigate("/app/trips", { replace: true }); } catch { /* the app shows why; stay on this trip */ } } }} className="mx-5 mt-8 flex h-12 w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-xl border font-semibold text-red-500" style={{ borderColor: "rgba(239,68,68,.35)" }}><Trash2 size={17}/>Delete trip</button>}
     </main>
     {editing && <button type="button" onClick={() => setShowItinerary(true)} className="absolute bottom-5 right-5 z-30 flex h-12 items-center gap-2 rounded-full px-4 font-semibold shadow-xl" style={{ background: "var(--gold)", color: "#1a1814" }}><MapPin size={17}/>Mood & cities</button>}

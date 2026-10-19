@@ -1,11 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PhotoAsset } from "../lib/local-repository";
-import type { AtlasBackend } from "../lib/backend";
+import type { AtlasBackend, AtlasSession, SaveProgress } from "../lib/backend";
+import { clearFailedUploads, stashFailedUploads } from "../lib/pending-uploads";
+import { clearAllDrafts } from "../lib/drafts";
+import type { AccountPreferences, PreferencesPatch } from "../lib/preferences-sync";
 import { selectBackend } from "../lib/backend-factory";
 import { createLocalBackend } from "../lib/local-backend";
 import { applyMediaUrls } from "../lib/supabase-mappers";
 import { deriveStatistics } from "../lib/selectors";
 import type { AppState, AppUser, Trip } from "../types/domain";
+
+export interface SaveOutcome {
+  /** Things that did not go through even though the trip itself was saved. */
+  warnings: string[];
+  failedPhotoIds: string[];
+}
 
 interface AppDataValue {
   ready: boolean;
@@ -24,8 +33,14 @@ interface AppDataValue {
   signOut(): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   completePasswordReset(newPassword: string): Promise<void>;
-  /** Resolves with warnings (for example photos that failed to upload) when the trip itself was saved. */
-  saveTrip(trip: Trip, assets?: PhotoAsset[]): Promise<string[]>;
+  /**
+   * Resolves once the trip is saved, listing anything that did not go through (for example photos that failed to
+   * upload). Failed photos are kept in memory so the trip page can offer a retry.
+   */
+  saveTrip(trip: Trip, assets?: PhotoAsset[], onProgress?: (progress: SaveProgress) => void): Promise<SaveOutcome>;
+  /** The account's saved settings, or null for guests and the browser-only prototype. */
+  accountPreferences: { values: AccountPreferences; untouched: boolean } | null;
+  savePreferences(patch: PreferencesPatch): Promise<void>;
   deleteTrip(tripId: string): Promise<void>;
   toggleTripFavourite(tripId: string): Promise<void>;
   togglePhotoFavourite(photoId: string): Promise<void>;
@@ -56,27 +71,39 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [state, setState] = useState<AppState | null>(null);
   const [actionError, setActionError] = useState("");
+  const [accountPreferences, setAccountPreferences] = useState<NonNullable<AtlasSession["preferences"]> | null>(null);
   const stateRef = useRef<AppState | null>(null);
   const lastMediaRefresh = useRef(Date.now());
   stateRef.current = state;
+
+  // Photos open fast with thumbnails; original-quality links are fetched afterwards and swapped in.
+  const hydrateOriginals = useCallback((photoIds: string[], forUser: string, source: AtlasBackend) => {
+    if (!photoIds.length || !source.refreshMedia) return;
+    source.refreshMedia(photoIds, "originals")
+      .then((urls) => setState((current) => current && current.userId === forUser ? applyMediaUrls(current, urls) : current))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (selected.configError) { setReady(true); return; }
     let active = true;
     // A hosted sign-out event must not end an unrelated device-only guest session.
-    const unsubscribe = primary.onSignedOut(() => { if (active && !guestActiveRef.current) { setUser(null); setState(null); } });
+    const unsubscribe = primary.onSignedOut(() => { if (active && !guestActiveRef.current) { setUser(null); setState(null); setAccountPreferences(null); } });
     (async () => {
       try {
         let session = primary.kind === "supabase" ? await guestBackend.init().catch(() => null) : null;
         if (session?.user.isGuest) { if (active) setGuestActive(true); }
         else session = await primary.init();
-        if (session && active) { setUser(session.user); setState(session.state); lastMediaRefresh.current = Date.now(); }
+        if (session && active) {
+          setUser(session.user); setState(session.state); setAccountPreferences(session.preferences ?? null); lastMediaRefresh.current = Date.now();
+          hydrateOriginals(session.state.trips.flatMap((trip) => trip.photos.map((photo) => photo.id)), session.user.id, session.user.isGuest ? guestBackend : primary);
+        }
       } catch (error) {
         if (active) setStorageError(error instanceof Error ? error.message : "Your atlas could not be opened.");
       } finally { if (active) setReady(true); }
     })();
     return () => { active = false; unsubscribe(); };
-  }, [primary, guestBackend, selected.configError]);
+  }, [primary, guestBackend, selected.configError, hydrateOriginals]);
 
   // Private image links expire after ten minutes, so re-sign them while the app is open.
   const userId = user?.id;
@@ -120,10 +147,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     register: async (name, email, password) => {
       const result = await primary.register(name, email, password);
       if (result.status === "verify-email") return { verifyEmail: true };
-      setGuestActive(false); setUser(result.session.user); setState(result.session.state);
+      setGuestActive(false); setUser(result.session.user); setState(result.session.state); setAccountPreferences(result.session.preferences ?? null);
+      hydrateOriginals(result.session.state.trips.flatMap((trip) => trip.photos.map((photo) => photo.id)), result.session.user.id, primary);
       return { verifyEmail: false };
     },
-    signIn: async (email, password) => { const session = await primary.signIn(email, password); setGuestActive(false); setUser(session.user); setState(session.state); },
+    signIn: async (email, password) => {
+      const session = await primary.signIn(email, password);
+      setGuestActive(false); setUser(session.user); setState(session.state); setAccountPreferences(session.preferences ?? null);
+      hydrateOriginals(session.state.trips.flatMap((trip) => trip.photos.map((photo) => photo.id)), session.user.id, primary);
+    },
     startGuest: async () => {
       const session = await guestBackend.startGuest!();
       setGuestActive(true); setUser(session.user); setState(session.state);
@@ -131,19 +163,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     signOut: async () => {
       // Leave the UI immediately; a failed network revoke must not trap the user in a signed-in screen.
       const leaving = user;
-      setUser(null); setState(null); setGuestActive(false);
+      clearAllDrafts();
+      setUser(null); setState(null); setGuestActive(false); setAccountPreferences(null);
       // Guest data is unrecoverable once the session ends, so remove it rather than leave it behind.
       if (leaving?.isGuest) await guestBackend.deleteAccount(leaving).catch(() => undefined);
       else await primary.signOut().catch(() => undefined);
     },
     requestPasswordReset: (email) => primary.requestPasswordReset(email),
     completePasswordReset: (newPassword) => primary.completePasswordReset(newPassword),
-    saveTrip: async (trip, assets = []) => {
+    saveTrip: async (trip, assets = [], onProgress) => {
       if (!state) throw new Error("Sign in before changing your atlas.");
-      const result = await backend.saveTrip(state, trip, assets);
+      const result = await backend.saveTrip(state, trip, assets, onProgress);
       setState(result.state);
-      return result.warnings;
+      // Keep photos that failed so the trip page can offer a retry; forget the ones that made it.
+      const failed = new Set(result.failedPhotoIds);
+      clearFailedUploads(trip.id, trip.photos.map((photo) => photo.id).filter((id) => !failed.has(id)));
+      if (failed.size) {
+        stashFailedUploads(trip.id, trip.photos.filter((photo) => failed.has(photo.id)).flatMap((photo) => {
+          const asset = assets.find((item) => item.id === photo.id);
+          return asset ? [{ photo, asset }] : [];
+        }));
+      }
+      const saved = result.state.trips.find((item) => item.id === trip.id);
+      if (saved) hydrateOriginals(saved.photos.map((photo) => photo.id), result.state.userId, backend);
+      return { warnings: result.warnings, failedPhotoIds: result.failedPhotoIds };
     },
+    accountPreferences,
+    savePreferences: async (patch) => { await backend.savePreferences?.(patch); },
     deleteTrip: (tripId) => mutate((current) => backend.deleteTrip(current, tripId), { rethrow: true }),
     toggleTripFavourite: (tripId) => mutate((current) => backend.toggleTripFavourite(current, tripId)),
     togglePhotoFavourite: (photoId) => mutate((current) => backend.togglePhotoFavourite(current, photoId)),
@@ -156,9 +202,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return result.notice;
     },
     changePassword: async (currentPassword, newPassword) => { if (user) await backend.changePassword(user, currentPassword, newPassword); },
-    deleteAccount: async (password) => { if (!user) return; await backend.deleteAccount(user, password); setUser(null); setState(null); setGuestActive(false); },
+    deleteAccount: async (password) => { if (!user) return; await backend.deleteAccount(user, password); clearAllDrafts(); setUser(null); setState(null); setGuestActive(false); setAccountPreferences(null); },
     exportData: backend.exportData ? () => backend.exportData!() : undefined,
-  }), [backend, guestBackend, mutate, primary, ready, state, storageError, user]);
+  }), [accountPreferences, backend, guestBackend, hydrateOriginals, mutate, primary, ready, state, storageError, user]);
 
   return (
     <AppDataContext.Provider value={value}>

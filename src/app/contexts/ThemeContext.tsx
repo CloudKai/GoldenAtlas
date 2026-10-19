@@ -1,3 +1,4 @@
+import { emitPreferenceChange } from "../lib/preferences-sync";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type ThemePreference = "system" | "light" | "dark";
@@ -43,6 +44,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(nextTheme) {
       localStorage.setItem(STORAGE_KEY, nextTheme);
       setThemeState(nextTheme);
+      emitPreferenceChange({ theme: nextTheme });
     },
   }), [resolvedTheme, theme]);
 

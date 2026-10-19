@@ -1,5 +1,7 @@
 import { countsTowardWorldTotal } from "../data/countries";
 import { hasStarted, strandedDays, todayISO } from "./trip-days";
+import { onThisDay } from "./trip-memories";
+import { expenseProblem } from "./trip-extras";
 import type { AppState, AppStatistics, MemoryPhoto, SlideshowScope, Trip } from "../types/domain";
 
 export const tripsForCountry = (state: AppState, countryId: string) =>
@@ -20,6 +22,11 @@ export function photosForScope(state: AppState, scope: SlideshowScope): ReturnTy
   if (scope.type === "favourites") return photos.filter((photo) => photo.isFavourite);
   if (scope.type === "country") return photos.filter((photo) => photo.countryId === scope.countryId);
   if (scope.type === "trip") return photos.filter((photo) => photo.tripId === scope.tripId);
+  if (scope.type === "day") return photos.filter((photo) => photo.tripId === scope.tripId && photo.date === scope.date);
+  if (scope.type === "onThisDay") {
+    const ids = new Set(onThisDay(state.trips).flatMap((entry) => entry.photos.map((photo) => photo.id)));
+    return photos.filter((photo) => ids.has(photo.id));
+  }
   const selected = new Set(scope.photoIds);
   return photos.filter((photo) => selected.has(photo.id));
 }
@@ -58,12 +65,14 @@ export function deriveStatistics(state: AppState, today = todayISO()): AppStatis
   };
 }
 
-export function validateTrip(trip: Pick<Trip, "title" | "countryId" | "startDate" | "endDate" | "stops"> & Partial<Pick<Trip, "days">>) {
+export function validateTrip(trip: Pick<Trip, "title" | "countryId" | "startDate" | "endDate" | "stops"> & Partial<Pick<Trip, "days" | "expense">>) {
   const errors: string[] = [];
   if (!trip.countryId) errors.push("Select a country.");
   if (!trip.title.trim()) errors.push("Enter a trip name.");
   if (!trip.startDate || !trip.endDate) errors.push("Enter both travel dates.");
   if (trip.startDate && trip.endDate && trip.endDate < trip.startDate) errors.push("End date must be on or after the start date.");
+  const expenseIssue = expenseProblem(trip.expense);
+  if (expenseIssue) errors.push(expenseIssue);
   // Shortening a trip must not silently discard diary entries written on the removed days.
   if (strandedDays(trip).length) errors.push("Some days outside the new dates have notes. Clear them or keep those dates.");
   const uniqueCities = new Set(trip.stops.map((stop) => stop.cityId));

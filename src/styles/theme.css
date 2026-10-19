@@ -364,3 +364,33 @@
     line-height: 1.5;
   }
 }
+
+/* Printing a trip book: let the page flow instead of clipping it to the phone-sized frame. */
+@media print {
+  @page { margin: 14mm; }
+
+  .app-canvas {
+    display: block !important;
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+
+  .app-frame {
+    height: auto !important;
+    max-height: none !important;
+    max-width: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .print-hidden { display: none !important; }
+
+  .trip-book {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .trip-book .keep-together { break-inside: avoid; }
+  .trip-book h2 { break-after: avoid; }
+}

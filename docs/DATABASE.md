@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | `countries` | GeoNames country/territory reference data | Public read of active rows |
 | `profiles` | Display name and future private avatar path | `id = auth.uid()` |
-| `user_preferences` | Theme, privacy, analytics, slideshow settings | `user_id = auth.uid()` |
+| `user_preferences` | Theme, privacy, analytics, slideshow settings, favourite country | `user_id = auth.uid()` |
 | `trips` | Country visit, dates, journal, mood, rating, expenses | `user_id = auth.uid()` |
 | `memories` | Photo metadata, generated paths, upload state | User plus owned trip |
 | `travel_companions` | User-owned reusable companion records | `user_id = auth.uid()` |
@@ -40,7 +40,7 @@ erDiagram
 
 ## Days and planned trips
 
-A trip's days are implicit: every calendar date from `start_date` to `end_date`. `trip_days` holds a row only for a day the user has written on, unique per `(trip_id, day_date)`. A photo belongs to a day through its `memories.taken_at` date, so moving a photo to another day only changes that date. Adding a day to a trip extends `end_date`.
+A trip's days are implicit: every calendar date from `start_date` to `end_date`. `trip_days` holds a row only for a day the user has written on or listed places for, unique per `(trip_id, day_date)`; `places` is the ordered list of place names visited that day. A photo belongs to a day through its `memories.taken_at` date, so moving a photo to another day only changes that date. Adding a day to a trip extends `end_date`.
 
 A trip whose `start_date` is in the future is a planned trip. It is stored like any other, appears under Upcoming, and is excluded from visited countries and statistics until its first day. Clients compare against the user's local date; the database stores no status.
 

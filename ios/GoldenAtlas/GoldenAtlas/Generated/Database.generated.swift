@@ -631,6 +631,7 @@ public enum PublicSchema {
     public let dayDate: String
     public let id: UUID
     public let notes: String?
+    public let places: [String]
     public let title: String?
     public let tripId: UUID
     public let updatedAt: String
@@ -640,6 +641,7 @@ public enum PublicSchema {
       case dayDate = "day_date"
       case id = "id"
       case notes = "notes"
+      case places = "places"
       case title = "title"
       case tripId = "trip_id"
       case updatedAt = "updated_at"
@@ -651,6 +653,7 @@ public enum PublicSchema {
     public let dayDate: String
     public let id: UUID?
     public let notes: String?
+    public let places: [String]?
     public let title: String?
     public let tripId: UUID
     public let updatedAt: String?
@@ -660,6 +663,7 @@ public enum PublicSchema {
       case dayDate = "day_date"
       case id = "id"
       case notes = "notes"
+      case places = "places"
       case title = "title"
       case tripId = "trip_id"
       case updatedAt = "updated_at"
@@ -671,6 +675,7 @@ public enum PublicSchema {
     public let dayDate: String?
     public let id: UUID?
     public let notes: String?
+    public let places: [String]?
     public let title: String?
     public let tripId: UUID?
     public let updatedAt: String?
@@ -680,6 +685,7 @@ public enum PublicSchema {
       case dayDate = "day_date"
       case id = "id"
       case notes = "notes"
+      case places = "places"
       case title = "title"
       case tripId = "trip_id"
       case updatedAt = "updated_at"
@@ -803,6 +809,7 @@ public enum PublicSchema {
   public struct UserPreferencesSelect: Codable, Hashable, Sendable {
     public let analyticsConsent: Bool
     public let createdAt: String
+    public let favouriteCountryCode: String?
     public let reducedMotion: Bool
     public let removePhotoGpsByDefault: Bool
     public let showSlideshowCaption: Bool
@@ -818,6 +825,7 @@ public enum PublicSchema {
     public enum CodingKeys: String, CodingKey {
       case analyticsConsent = "analytics_consent"
       case createdAt = "created_at"
+      case favouriteCountryCode = "favourite_country_code"
       case reducedMotion = "reduced_motion"
       case removePhotoGpsByDefault = "remove_photo_gps_by_default"
       case showSlideshowCaption = "show_slideshow_caption"
@@ -835,6 +843,7 @@ public enum PublicSchema {
   public struct UserPreferencesInsert: Codable, Hashable, Sendable {
     public let analyticsConsent: Bool?
     public let createdAt: String?
+    public let favouriteCountryCode: String?
     public let reducedMotion: Bool?
     public let removePhotoGpsByDefault: Bool?
     public let showSlideshowCaption: Bool?
@@ -850,6 +859,7 @@ public enum PublicSchema {
     public enum CodingKeys: String, CodingKey {
       case analyticsConsent = "analytics_consent"
       case createdAt = "created_at"
+      case favouriteCountryCode = "favourite_country_code"
       case reducedMotion = "reduced_motion"
       case removePhotoGpsByDefault = "remove_photo_gps_by_default"
       case showSlideshowCaption = "show_slideshow_caption"
@@ -867,6 +877,7 @@ public enum PublicSchema {
   public struct UserPreferencesUpdate: Codable, Hashable, Sendable {
     public let analyticsConsent: Bool?
     public let createdAt: String?
+    public let favouriteCountryCode: String?
     public let reducedMotion: Bool?
     public let removePhotoGpsByDefault: Bool?
     public let showSlideshowCaption: Bool?
@@ -882,6 +893,7 @@ public enum PublicSchema {
     public enum CodingKeys: String, CodingKey {
       case analyticsConsent = "analytics_consent"
       case createdAt = "created_at"
+      case favouriteCountryCode = "favourite_country_code"
       case reducedMotion = "reduced_motion"
       case removePhotoGpsByDefault = "remove_photo_gps_by_default"
       case showSlideshowCaption = "show_slideshow_caption"

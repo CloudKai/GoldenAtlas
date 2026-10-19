@@ -40,6 +40,15 @@ export interface TripDay {
   title?: string;
   /** The diary entry for that day, or the plan for it when the trip is still ahead. */
   notes: string;
+  /** Names of the places visited that day, in the order they were visited. */
+  places?: string[];
+}
+
+export interface TripExpense {
+  /** Up to two decimal places, never negative. */
+  amount: number;
+  /** ISO 4217 code such as SGD. */
+  currency: string;
 }
 
 export interface Trip {
@@ -63,6 +72,8 @@ export interface Trip {
   stops: TripStop[];
   /** Per-day titles and diary entries. Absent on trips saved before day folders existed. */
   days?: TripDay[];
+  /** What the trip cost, or the budget while it is still ahead. One amount in one currency. */
+  expense?: TripExpense;
   isFavourite: boolean;
 }
 
@@ -80,6 +91,8 @@ export type SlideshowScope =
   | { type: "favourites" }
   | { type: "country"; countryId: string }
   | { type: "trip"; tripId: string }
+  | { type: "day"; tripId: string; date: string }
+  | { type: "onThisDay" }
   | { type: "selection"; photoIds: string[] };
 
 export interface AppStatistics {

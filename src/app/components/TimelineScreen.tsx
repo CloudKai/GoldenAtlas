@@ -4,6 +4,7 @@ import { Search, Filter, ChevronDown, Heart, Camera, Calendar, X } from "lucide-
 import type { Trip } from "../types/domain";
 import { useAppData } from "../contexts/AppDataContext";
 import { daysUntil, hasStarted, todayISO } from "../lib/trip-days";
+import { searchTrips } from "../lib/trip-search";
 
 function formatDateRange(start: string, end: string) {
   const s = new Date(start);
@@ -38,14 +39,10 @@ export function TimelineScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [filterFavourites, setFilterFavourites] = useState(false);
 
-  const filtered = trips.filter((t) => {
-    if (filterFavourites && !t.isFavourite) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return t.title.toLowerCase().includes(q) || t.country.toLowerCase().includes(q) || t.city.toLowerCase().includes(q);
-    }
-    return true;
-  });
+  // Search looks through names, places, companions, journals, every day's diary, and photo captions.
+  const results = searchTrips(trips, search);
+  const matchesByTrip = new Map(results.map((result) => [result.trip.id, result.matches]));
+  const filtered = results.map((result) => result.trip).filter((trip) => !filterFavourites || trip.isFavourite);
 
   // Trips planned ahead sit in their own section, soonest first; everything that has started is grouped by year.
   const today = todayISO();
@@ -89,7 +86,7 @@ export function TimelineScreen() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search trips, countries, cities..."
+              placeholder="Search trips, diaries, captions, places…"
               className="flex-1 bg-transparent outline-none"
               style={{ fontSize: "14px", color: "var(--foreground)" }}
             />
@@ -177,6 +174,11 @@ export function TimelineScreen() {
                             <span key={i} style={{ fontSize: "10px" }}>★</span>
                           ))}
                         </div>
+                        {(matchesByTrip.get(trip.id) ?? []).slice(0, 2).map((match, index) => (
+                          <p key={index} className="mt-2 line-clamp-2" style={{ fontSize: "12px", lineHeight: 1.4, color: "var(--muted-foreground)" }}>
+                            <span style={{ color: "var(--gold)", fontWeight: 600 }}>In {match.label}: </span>{match.snippet}
+                          </p>
+                        ))}
                       </div>
                     </div>
                   </div>
