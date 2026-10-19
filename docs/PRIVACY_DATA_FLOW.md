@@ -25,7 +25,7 @@ Account deletion requires recent authentication and an explicit confirmation. A 
 
 ## Export
 
-An authenticated user can generate a private JSON export containing profile, preferences, trips, memory metadata, journals/captions, companions, places, and bucket-list entries. RLS-scoped reads ensure it contains only the requester. The object expires after 24 hours and its signed URL after 10 minutes. Expired objects are removed on access, on the next request, or by the scheduled cleanup worker. The current export includes a media manifest but not image bytes; building image-inclusive ZIP archives is deferred to a durable chunked worker because Edge Function memory/CPU/duration limits make a single-request archive unsafe.
+An authenticated user can generate a private JSON export containing profile, preferences, trips, per-day diaries, memory metadata, journals/captions, companions, places, and bucket-list entries. RLS-scoped reads ensure it contains only the requester. The object expires after 24 hours and its signed URL after 10 minutes. Expired objects are removed on access, on the next request, or by the scheduled cleanup worker. The current export includes a media manifest but not image bytes; building image-inclusive ZIP archives is deferred to a durable chunked worker because Edge Function memory/CPU/duration limits make a single-request archive unsafe.
 
 ## Data inventory and retention
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ChevronLeft, Plus, Play, Heart, Camera, MapPin, Calendar, MoreHorizontal, Grid, List, Clock, X } from "lucide-react";
 import { getCountry, resolveCountryId } from "../data/countries";
+import { hasStarted } from "../lib/trip-days";
 import { useAppData } from "../contexts/AppDataContext";
 import { allPhotos } from "../lib/selectors";
 
@@ -25,8 +26,10 @@ export function CountryScreen() {
   const fixture = getCountry(id) ?? null;
   const trips = id ? (state?.trips ?? []).filter((trip) => trip.countryId === id) : [];
   const photos = state ? allPhotos(state).filter((photo) => photo.countryId === id) : [];
-  const dates = trips.flatMap((trip) => [trip.startDate, trip.endDate]).sort();
-  const country = fixture ? { ...fixture, visited: trips.length > 0, tripCount: trips.length, photoCount: photos.length, firstVisit: dates[0], lastVisit: dates.at(-1), bucketList: Boolean(id && state?.bucketListIds.includes(id)) } : null;
+  // Trips planned ahead are listed below but are not visits yet.
+  const startedTrips = trips.filter((trip) => hasStarted(trip));
+  const dates = startedTrips.flatMap((trip) => [trip.startDate, trip.endDate]).sort();
+  const country = fixture ? { ...fixture, visited: startedTrips.length > 0, tripCount: startedTrips.length, photoCount: photos.length, firstVisit: dates[0], lastVisit: dates.at(-1), bucketList: Boolean(id && state?.bucketListIds.includes(id)) } : null;
 
   if (!country) {
     return (

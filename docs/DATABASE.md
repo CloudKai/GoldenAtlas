@@ -10,6 +10,7 @@
 | `travel_companions` | User-owned reusable companion records | `user_id = auth.uid()` |
 | `trip_companions` | Owned trip-to-owned-companion join | Composite owner FKs |
 | `places` | Named place and optional coordinates | User, owned trip, matching country |
+| `trip_days` | Optional title and diary (or plan) for one calendar day of a trip | User plus owned trip (composite FK, cascades with the trip) |
 | `bucket_list` | Unique user/country wish-list entry | `user_id = auth.uid()` |
 | `data_export_jobs` | Private structured-export state and expiry | `user_id = auth.uid()`; server writes only |
 | `account_deletion_requests` | Minimum retry state during deletion | `user_id = auth.uid()`; server writes only |
@@ -28,6 +29,7 @@ erDiagram
   AUTH_USERS ||--o{ TRIPS : owns
   TRIPS ||--o{ MEMORIES : contains
   TRIPS ||--o{ PLACES : contains
+  TRIPS ||--o{ TRIP_DAYS : contains
   TRIPS ||--o{ TRIP_COMPANIONS : includes
   TRAVEL_COMPANIONS ||--o{ TRIP_COMPANIONS : joins
   AUTH_USERS ||--o{ BUCKET_LIST : owns
@@ -35,6 +37,12 @@ erDiagram
   AUTH_USERS ||--o| ACCOUNT_DELETION_REQUESTS : requests
   COUNTRIES ||--o{ TRIPS : classifies
 ```
+
+## Days and planned trips
+
+A trip's days are implicit: every calendar date from `start_date` to `end_date`. `trip_days` holds a row only for a day the user has written on, unique per `(trip_id, day_date)`. A photo belongs to a day through its `memories.taken_at` date, so moving a photo to another day only changes that date. Adding a day to a trip extends `end_date`.
+
+A trip whose `start_date` is in the future is a planned trip. It is stored like any other, appears under Upcoming, and is excluded from visited countries and statistics until its first day. Clients compare against the user's local date; the database stores no status.
 
 ## Country denominator
 

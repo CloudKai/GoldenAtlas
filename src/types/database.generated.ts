@@ -387,6 +387,47 @@ export type Database = {
           },
         ]
       }
+      trip_days: {
+        Row: {
+          created_at: string
+          day_date: string
+          id: string
+          notes: string | null
+          title: string | null
+          trip_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          id?: string
+          notes?: string | null
+          title?: string | null
+          trip_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          id?: string
+          notes?: string | null
+          title?: string | null
+          trip_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_days_trip_owner_fkey"
+            columns: ["trip_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           city: string | null

@@ -6,6 +6,7 @@ import type { AppState, MemoryPhoto, Trip, TripStop } from "../types/domain";
 export type TripRow = Tables<"trips">;
 export type MemoryRow = Tables<"memories">;
 export type PlaceRow = Tables<"places">;
+export type TripDayRow = Tables<"trip_days">;
 
 export const FALLBACK_COVER = "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&q=80&auto=format&fit=crop";
 export const SIGNED_URL_SECONDS = 600;
@@ -92,6 +93,7 @@ export interface TripAssembly {
   countryName: (code: string) => string;
   memories: readonly MemoryRow[];
   places: readonly PlaceRow[];
+  days?: readonly TripDayRow[];
   companions: readonly string[];
   urls: ReadonlyMap<string, MediaUrls>;
   cities: readonly CityRef[];
@@ -124,6 +126,9 @@ export function tripFromRow(row: TripRow, assembly: TripAssembly): Trip {
     companions: [...assembly.companions],
     places: assembly.places.map((place) => place.name),
     stops,
+    days: [...(assembly.days ?? [])]
+      .sort((a, b) => a.day_date.localeCompare(b.day_date))
+      .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "" })),
     isFavourite: row.is_favourite,
   };
 }
@@ -253,6 +258,10 @@ export function validateRemoteTrip(trip: Trip) {
   tooLong("Mood", trip.mood, 32);
   companionNames(trip).forEach((name) => tooLong("Companion name", name, 120));
   trip.places.forEach((name) => tooLong("Place name", name.trim(), 180));
+  (trip.days ?? []).forEach((day) => {
+    tooLong("Day title", day.title?.trim(), 120);
+    tooLong("Day diary", day.notes, 20_000);
+  });
   trip.photos.forEach((photo) => {
     tooLong("Photo caption", photo.caption, 2_000);
     tooLong("Photo location", photo.location, 240);

@@ -101,11 +101,12 @@ export default {
           }
         };
 
-        const [profiles, preferences, trips, memories, companions, tripCompanions, places, bucketList] =
+        const [profiles, preferences, trips, tripDays, memories, companions, tripCompanions, places, bucketList] =
           await Promise.all([
             fetchAll("profiles"),
             fetchAll("user_preferences"),
             fetchAll("trips"),
+            fetchAll("trip_days"),
             fetchAll("memories"),
             fetchAll("travel_companions"),
             fetchAll("trip_companions"),
@@ -123,6 +124,7 @@ export default {
           profile: profiles[0] ?? null,
           preferences: preferences[0] ?? null,
           trips,
+          trip_days: tripDays,
           memories,
           travel_companions: companions,
           trip_companions: tripCompanions,

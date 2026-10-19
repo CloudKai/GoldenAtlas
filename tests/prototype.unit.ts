@@ -8,6 +8,10 @@ import { allPhotos, deriveStatistics, photosForScope, togglePhotoFavourite, vali
 import type { AppState, Trip } from "../src/app/types/domain";
 import { migrateState } from "../src/app/lib/local-repository";
 import {
+  addDays, addDayToTrip, canRemoveLastDay, datesInRange, dayFolders, daysUntil, hasStarted, movePhotoToDay, placePhotosInTrip, planDaySync,
+  removeLastDay, strandedDays, tripStatus, updateDay, updatePhoto,
+} from "../src/app/lib/trip-days";
+import {
   applyMediaUrls, companionNames, describeAuthError, describeDatabaseError, describeFunctionError, flagEmoji, passwordProblem, placesToRows,
   planPhotoChanges, publishableKeyProblem, sortTrips, takenAtFromDate, tripDuration, tripFromRow, tripToRow, validateRemoteTrip,
   type MemoryRow, type PlaceRow, type TripRow,
@@ -25,7 +29,7 @@ const trip = (changes: Partial<Trip> = {}): Trip => ({
 const state = (trips: Trip[]): AppState => ({ schemaVersion: 1, userId: "user-1", trips, bucketListIds: [], updatedAt: "2025-01-03T00:00:00Z" });
 
 test("statistics are derived from persisted trips without double-counting countries", () => {
-  const value = deriveStatistics(state([trip(), trip({ id: "trip-2", title: "Provence", startDate: "2026-02-01", endDate: "2026-02-04", duration: 4, photos: [] })]));
+  const value = deriveStatistics(state([trip(), trip({ id: "trip-2", title: "Provence", startDate: "2026-02-01", endDate: "2026-02-04", duration: 4, photos: [] })]), "2030-01-01");
   assert.equal(value.countriesVisited, 1);
   assert.equal(value.totalTrips, 2);
   assert.equal(value.totalTravelDays, 7);
@@ -242,7 +246,122 @@ test("territories are selectable but stay out of the 195 total", () => {
   assert.equal(countsTowardWorldTotal("FR"), true);
   assert.equal(countsTowardWorldTotal("HK"), false);
   assert.equal(countsTowardWorldTotal("XX"), false);
-  const value = deriveStatistics(state([trip(), trip({ id: "hk", countryId: "HK", country: "Hong Kong" })]));
+  const value = deriveStatistics(state([trip(), trip({ id: "hk", countryId: "HK", country: "Hong Kong" })]), "2030-01-01");
   assert.equal(value.countriesVisited, 2);
   assert.equal(value.worldCountriesVisited, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Planning ahead and day folders
+// ---------------------------------------------------------------------------
+
+const photoOn = (id: string, date: string, caption = "") => ({ id, url: `${id}.jpg`, caption, date, isFavourite: false });
+const weekTrip = (changes: Partial<Trip> = {}): Trip => trip({ id: "week", startDate: "2030-03-30", endDate: "2030-04-02", duration: 4, photos: [], days: [], ...changes });
+
+test("date helpers handle month ends, leap days, and bad input", () => {
+  assert.equal(addDays("2028-02-28", 1), "2028-02-29");
+  assert.equal(addDays("2030-03-31", 1), "2030-04-01");
+  assert.equal(addDays("2030-01-01", -1), "2029-12-31");
+  assert.deepEqual(datesInRange("2030-03-30", "2030-04-02"), ["2030-03-30", "2030-03-31", "2030-04-01", "2030-04-02"]);
+  assert.deepEqual(datesInRange("2030-04-02", "2030-03-30"), []);
+  assert.deepEqual(datesInRange("nope", "2030-03-30"), []);
+  assert.equal(datesInRange("2000-01-01", "2100-01-01").length, 366, "a mistyped year cannot flood the screen");
+});
+
+test("a trip is upcoming, ongoing, or past relative to today", () => {
+  const value = weekTrip();
+  assert.equal(tripStatus(value, "2030-01-01"), "upcoming");
+  assert.equal(tripStatus(value, "2030-03-30"), "ongoing");
+  assert.equal(tripStatus(value, "2030-04-02"), "ongoing");
+  assert.equal(tripStatus(value, "2030-04-03"), "past");
+  assert.equal(hasStarted(value, "2030-03-29"), false);
+  assert.equal(hasStarted(value, "2030-03-30"), true);
+  assert.equal(daysUntil(value, "2030-03-25"), 5);
+  assert.equal(daysUntil(value, "2031-01-01"), 0);
+});
+
+test("planned trips stay out of the numbers until they start", () => {
+  const value = state([trip(), weekTrip({ countryId: "JP", country: "Japan", photos: [photoOn("p", "2030-03-30")] })]);
+  const before = deriveStatistics(value, "2029-12-31");
+  assert.deepEqual([before.totalTrips, before.upcomingTrips, before.countriesVisited, before.totalPhotos], [1, 1, 1, 2]);
+  const after = deriveStatistics(value, "2030-03-30");
+  assert.deepEqual([after.totalTrips, after.upcomingTrips, after.countriesVisited], [2, 0, 2]);
+});
+
+test("every date in a trip is a day folder and photos land in their day", () => {
+  const value = weekTrip({ photos: [photoOn("a", "2030-03-31", "Harbour"), photoOn("b", "2030-03-31"), photoOn("c", "2030-04-02"), photoOn("stray", "2031-01-01")], days: [{ date: "2030-03-31", title: "Boats", notes: "Ferry at dawn" }] });
+  const { days, otherPhotos, truncated } = dayFolders(value);
+  assert.deepEqual(days.map((day) => [day.number, day.date, day.photos.length]), [[1, "2030-03-30", 0], [2, "2030-03-31", 2], [3, "2030-04-01", 0], [4, "2030-04-02", 1]]);
+  assert.deepEqual([days[1].title, days[1].notes, days[0].notes], ["Boats", "Ferry at dawn", ""]);
+  assert.deepEqual(otherPhotos.map((photo) => photo.id), ["stray"], "photos outside the dates are kept, never hidden");
+  assert.equal(truncated, false);
+});
+
+test("writing on a day stores it and clearing it removes it", () => {
+  let value = updateDay(weekTrip(), "2030-04-01", { notes: "Plan: museum" });
+  value = updateDay(value, "2030-03-30", { title: "Arrival" });
+  assert.deepEqual(value.days?.map((day) => day.date), ["2030-03-30", "2030-04-01"]);
+  value = updateDay(value, "2030-04-01", { notes: "   " });
+  assert.deepEqual(value.days?.map((day) => day.date), ["2030-03-30"]);
+  value = updateDay(value, "2030-03-30", { title: "" });
+  assert.deepEqual(value.days, []);
+});
+
+test("a trip can grow by a day, and only an empty last day can be removed", () => {
+  const grown = addDayToTrip(weekTrip());
+  assert.deepEqual([grown.endDate, grown.duration], ["2030-04-03", 5]);
+  assert.equal(canRemoveLastDay(grown), true);
+  assert.deepEqual([removeLastDay(grown).endDate, removeLastDay(grown).duration], ["2030-04-02", 4]);
+  const withPhoto = { ...grown, photos: [photoOn("p", "2030-04-03")] };
+  assert.equal(canRemoveLastDay(withPhoto), false);
+  assert.equal(removeLastDay(withPhoto), withPhoto, "nothing saved on a day is ever deleted by removing it");
+  const withNotes = updateDay(grown, "2030-04-03", { notes: "Flight home" });
+  assert.equal(canRemoveLastDay(withNotes), false);
+  const oneDay = weekTrip({ startDate: "2030-03-30", endDate: "2030-03-30", duration: 1 });
+  assert.equal(canRemoveLastDay(oneDay), false, "a trip keeps at least one day");
+});
+
+test("captions and day moves change only the chosen photo", () => {
+  const value = weekTrip({ photos: [photoOn("a", "2030-03-30"), photoOn("b", "2030-03-30")] });
+  const captioned = updatePhoto(value, "a", { caption: "Sunrise" });
+  assert.deepEqual(captioned.photos.map((photo) => photo.caption), ["Sunrise", ""]);
+  const moved = movePhotoToDay(captioned, "b", "2030-04-02");
+  assert.deepEqual(moved.photos.map((photo) => photo.date), ["2030-03-30", "2030-04-02"]);
+  assert.equal(value.photos[0].caption, "", "the original trip is not mutated");
+});
+
+test("shortening a trip is blocked only when it would lose written days", () => {
+  const written = weekTrip({ days: [{ date: "2030-04-02", notes: "Last day plans" }] });
+  assert.deepEqual(strandedDays({ ...written, endDate: "2030-04-01" }), ["2030-04-02"]);
+  assert.deepEqual(strandedDays(written), []);
+  assert.match(validateTrip({ ...written, endDate: "2030-04-01" }).join(" "), /outside the new dates/);
+  assert.deepEqual(validateTrip(weekTrip({ endDate: "2030-04-01" })), [], "empty days can always be dropped");
+});
+
+test("new uploads are placed inside the trip so they never vanish into a stray folder", () => {
+  const placed = placePhotosInTrip([photoOn("today", "2026-10-19"), photoOn("inside", "2030-04-01")], "2030-03-30", "2030-04-02");
+  assert.deepEqual(placed.map((photo) => photo.date), ["2030-03-30", "2030-04-01"]);
+});
+
+test("saving days writes only what changed", () => {
+  const existing = [{ date: "d1", notes: "keep" }, { date: "d2", notes: "edit" }, { date: "d3", title: "gone", notes: "" }];
+  const next = [{ date: "d1", notes: "keep" }, { date: "d2", notes: "edited" }, { date: "d4", notes: "new" }, { date: "d5", notes: "  " }];
+  const plan = planDaySync(existing, next);
+  assert.deepEqual(plan.toUpsert.map((day) => day.date), ["d2", "d4"]);
+  assert.deepEqual(plan.toDelete, ["d3"]);
+  assert.deepEqual(planDaySync(existing, existing.filter((day) => day.date !== "d3")), { toUpsert: [], toDelete: ["d3"] });
+});
+
+test("day diaries load from the database and respect its length limits", () => {
+  const dayRow = (date: string, notes: string | null, title: string | null = null) => ({ id: date, user_id: "u", trip_id: "t", day_date: date, title, notes, created_at: "2030-01-01T00:00:00Z", updated_at: "2030-01-01T00:00:00Z" });
+  const loaded = tripFromRow(tripRow(), { countryName: () => "France", memories: [], places: [], companions: [], urls: new Map(), cities, days: [dayRow("2025-01-02", "Second"), dayRow("2025-01-01", null, "First")] });
+  assert.deepEqual(loaded.days, [{ date: "2025-01-01", title: "First", notes: "" }, { date: "2025-01-02", title: undefined, notes: "Second" }]);
+  assert.equal(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", title: "t".repeat(121), notes: "ok" }] })).length, 1);
+  assert.equal(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", notes: "n".repeat(20_001) }] })).length, 1);
+  assert.deepEqual(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", notes: "n".repeat(20_000) }] })), []);
+});
+
+test("trips saved before day folders existed load with an empty day list", () => {
+  const migrated = migrateState({ trips: [{ ...trip(), days: undefined }, { ...trip({ id: "b" }), days: [{ date: "2025-01-01", notes: "kept" }] }] }, "user-3");
+  assert.deepEqual(migrated.trips.map((item) => item.days), [[], [{ date: "2025-01-01", notes: "kept" }]]);
 });

@@ -6,17 +6,26 @@ import type { CountryData } from "../data/mock-data";
 import { COUNTRY_LIST, countsTowardWorldTotal, flagForCountry, resolveCountryId, searchCountries, shapeIdsForCountry } from "../data/countries";
 import { getCityVisitSummaries, toCityMapMarkers } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
+import { daysUntil, hasStarted, todayISO } from "../lib/trip-days";
+
+const MAP_HINT_KEY = "golden-atlas:map-hint-dismissed";
 
 export function MapScreen() {
   const navigate = useNavigate();
   const { user, state, toggleBucketList } = useAppData();
   const appTrips = state?.trips ?? [];
   const bucketListIds = state?.bucketListIds ?? [];
-  const visitedIds = useMemo(() => [...new Set(appTrips.map((trip) => trip.countryId))], [appTrips]);
+  // A country turns gold once a trip there has started; trips planned ahead wait under "Upcoming".
+  const today = todayISO();
+  const startedTrips = useMemo(() => appTrips.filter((trip) => hasStarted(trip, today)), [appTrips, today]);
+  const visitedIds = useMemo(() => [...new Set(startedTrips.map((trip) => trip.countryId))], [startedTrips]);
   const mapRef = useRef<WorldMapHandle>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(() => {
+    try { return localStorage.getItem(MAP_HINT_KEY) === "true"; } catch { return false; }
+  });
   const [selectedName, setSelectedName] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,7 +33,7 @@ export function MapScreen() {
 
   // Every country and territory in the database is listed, including places with no tappable shape (such as Antarctica).
   const allCountries = useMemo<CountryData[]>(() => COUNTRY_LIST.map(({ id, name, flag, continent }) => {
-    const countryTrips = appTrips.filter((trip) => trip.countryId === id);
+    const countryTrips = startedTrips.filter((trip) => trip.countryId === id);
     const dates = countryTrips.flatMap((trip) => [trip.startDate, trip.endDate]).sort();
     return {
       id,
@@ -38,7 +47,7 @@ export function MapScreen() {
       firstVisit: dates[0],
       lastVisit: dates.at(-1),
     };
-  }), [appTrips, bucketListIds]);
+  }), [startedTrips, bucketListIds]);
   // Aliased map shapes (for example Midway Islands) light up with the place they belong to.
   const mapVisitedIds = useMemo(() => visitedIds.flatMap(shapeIdsForCountry), [visitedIds]);
   const mapBucketListIds = useMemo(() => bucketListIds.flatMap(shapeIdsForCountry), [bucketListIds]);
@@ -55,9 +64,10 @@ export function MapScreen() {
       })
     : null;
   const trips = selectedId ? appTrips.filter((trip) => trip.countryId === selectedId) : [];
+  const plannedTrips = trips.filter((trip) => !hasStarted(trip, today)).sort((a, b) => a.startDate.localeCompare(b.startDate));
   const citySummaries = useMemo(
-    () => selectedId ? getCityVisitSummaries(appTrips, selectedId) : [],
-    [appTrips, selectedId],
+    () => selectedId ? getCityVisitSummaries(startedTrips, selectedId) : [],
+    [startedTrips, selectedId],
   );
   const cityMarkers = useMemo(() => toCityMapMarkers(citySummaries), [citySummaries]);
   const selectedCity = selectedCityId
@@ -77,6 +87,10 @@ export function MapScreen() {
 
   const selectCountry = (id: string, name?: string) => {
     const countryId = resolveCountryId(id);
+    if (!hintDismissed) {
+      setHintDismissed(true);
+      try { localStorage.setItem(MAP_HINT_KEY, "true"); } catch { /* the hint simply returns next visit */ }
+    }
     setSelectedCityId(null);
     setSelectedId(countryId);
     setSelectedShapeId(id);
@@ -320,6 +334,10 @@ export function MapScreen() {
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: "var(--gold-light)", color: "#7A6428" }}>
                         ✓ Visited
                       </span>
+                    ) : plannedTrips.length > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: "var(--gold-light)", color: "#7A6428" }}>
+                        ✈ Trip planned
+                      </span>
                     ) : selectedCountry?.bucketList ? (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: "#E8F4F1", color: "#5A9A8C" }}>
                         ♡ Bucket list
@@ -407,6 +425,27 @@ export function MapScreen() {
                   </button>
                 </div>
               </>
+            )}
+
+            {plannedTrips.length > 0 && (
+              <div className="mb-4 flex flex-col gap-2">
+                {plannedTrips.slice(0, 3).map((trip) => (
+                  <button
+                    key={trip.id}
+                    onClick={() => navigate(`/app/trip/${trip.id}`)}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate" style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 600 }}>{trip.title}</span>
+                      <span className="block" style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
+                        Starts in {daysUntil(trip, today)} {daysUntil(trip, today) === 1 ? "day" : "days"} · {new Date(`${trip.startDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </span>
+                    <ArrowRight size={14} style={{ color: "var(--gold)" }} />
+                  </button>
+                ))}
+              </div>
             )}
 
             {!selectedCountry?.visited && (
@@ -548,7 +587,7 @@ export function MapScreen() {
       )}
 
       {/* First-time empty state hint */}
-      {!selectedId && visitedList.length === 0 && (
+      {!hintDismissed && !selectedId && visitedList.length === 0 && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-md" style={{ background: "var(--card)" }}>
           <Info size={14} style={{ color: "var(--gold)" }} />
           <span style={{ fontSize: "13px", color: "var(--foreground)", fontWeight: 500 }}>Tap a country to get started</span>
