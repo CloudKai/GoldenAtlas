@@ -1,6 +1,7 @@
 // Pure helpers that translate between Supabase rows and the web app's domain model.
-// This module must stay free of runtime imports (types only) so it can be unit tested in Node.
+// Keep this module free of browser APIs so it can be unit tested in Node.
 import type { Tables } from "../../types/database.generated";
+import { expenseProblem } from "./trip-extras";
 import type { AppState, MemoryPhoto, Trip, TripStop } from "../types/domain";
 
 export type TripRow = Tables<"trips">;
@@ -126,6 +127,7 @@ export function tripFromRow(row: TripRow, assembly: TripAssembly): Trip {
     companions: [...assembly.companions],
     places: assembly.places.map((place) => place.name),
     stops,
+    expense: row.expense_amount !== null && row.expense_currency ? { amount: Number(row.expense_amount), currency: row.expense_currency } : undefined,
     days: [...(assembly.days ?? [])]
       .sort((a, b) => a.day_date.localeCompare(b.day_date))
       .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "" })),
@@ -148,6 +150,8 @@ export function tripToRow(trip: Trip) {
     favourite_memory: trip.favouriteMemory?.trim() || null,
     mood: trip.mood || null,
     rating: trip.rating >= 1 && trip.rating <= 5 ? Math.round(trip.rating) : null,
+    expense_amount: trip.expense ? trip.expense.amount : null,
+    expense_currency: trip.expense ? trip.expense.currency : null,
     is_favourite: trip.isFavourite,
   };
 }
@@ -267,6 +271,8 @@ export function validateRemoteTrip(trip: Trip) {
     tooLong("Photo location", photo.location, 240);
   });
   if (!/^[A-Z]{2}$/.test(trip.countryId)) errors.push("Select a supported country.");
+  const expenseIssue = expenseProblem(trip.expense);
+  if (expenseIssue) errors.push(expenseIssue);
   return [...new Set(errors)];
 }
 

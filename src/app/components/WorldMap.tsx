@@ -43,6 +43,8 @@ export interface WorldMapHandle {
 interface WorldMapProps {
   visitedIds: string[];
   bucketListIds: string[];
+  /** Countries with a trip planned but not started yet; drawn with a dashed outline. */
+  plannedIds?: string[];
   selectedId?: string | null;
   cityMarkers?: CityMapMarker[];
   selectedCityId?: string | null;
@@ -66,7 +68,7 @@ function clampViewBox(view: ViewBox): ViewBox {
 }
 
 export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function WorldMap(
-  { visitedIds, bucketListIds, selectedId, cityMarkers = [], selectedCityId, onCountryClick, onCityClick },
+  { visitedIds, bucketListIds, plannedIds = [], selectedId, cityMarkers = [], selectedCityId, onCountryClick, onCityClick },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +83,7 @@ export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function World
   const smallCountryIds = useMemo(() => new Set(smallCountries.map((country) => country.id)), [smallCountries]);
   const visitedSet = useMemo(() => new Set(visitedIds), [visitedIds]);
   const bucketListSet = useMemo(() => new Set(bucketListIds), [bucketListIds]);
+  const plannedSet = useMemo(() => new Set(plannedIds), [plannedIds]);
 
   const zoomAround = useCallback((factor: number, anchor?: Point) => {
     setViewBox((current) => {
@@ -264,6 +267,7 @@ export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function World
           const id = country.id.toUpperCase();
           const selected = id === selectedId;
           const visited = visitedSet.has(id);
+          const planned = plannedSet.has(id) && !visited && !selected;
           const isSmallCountry = smallCountryIds.has(id);
           return (
             <g key={id}>
@@ -274,8 +278,9 @@ export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function World
                 }}
                 d={country.path}
                 fill={getCountryFill(id)}
-                stroke={selected ? "var(--map-selected-border)" : "var(--map-border)"}
-                strokeWidth={selected ? 1.8 : 0.65}
+                stroke={selected ? "var(--map-selected-border)" : planned ? "var(--gold)" : "var(--map-border)"}
+                strokeWidth={selected ? 1.8 : planned ? 1.6 : 0.65}
+                strokeDasharray={planned ? "5 3" : undefined}
                 vectorEffect="non-scaling-stroke"
                 className={`world-map-country cursor-pointer transition-colors duration-200${selected ? " world-map-country--selected" : ""}`}
                 style={{
@@ -300,6 +305,7 @@ export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function World
         {smallCountries.map((country) => {
           const selected = country.id === selectedId;
           const visited = visitedSet.has(country.id);
+          const planned = plannedSet.has(country.id) && !visited && !selected;
           return (
             <g
               key={`marker-${country.id}`}
@@ -329,8 +335,9 @@ export const WorldMap = forwardRef<WorldMapHandle, WorldMapProps>(function World
                 cy={country.y}
                 r={markerRadius}
                 fill={getCountryFill(country.id)}
-                stroke={selected ? "var(--map-selected-border)" : "var(--map-border)"}
-                strokeWidth={selected ? 1.8 : 1}
+                stroke={selected ? "var(--map-selected-border)" : planned ? "var(--gold)" : "var(--map-border)"}
+                strokeWidth={selected ? 1.8 : planned ? 1.8 : 1}
+                strokeDasharray={planned ? "3 2" : undefined}
                 vectorEffect="non-scaling-stroke"
                 className={`world-map-small-country-dot pointer-events-none${selected ? " world-map-country--selected" : ""}`}
               >

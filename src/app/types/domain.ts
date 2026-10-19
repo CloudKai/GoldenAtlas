@@ -42,6 +42,13 @@ export interface TripDay {
   notes: string;
 }
 
+export interface TripExpense {
+  /** Up to two decimal places, never negative. */
+  amount: number;
+  /** ISO 4217 code such as SGD. */
+  currency: string;
+}
+
 export interface Trip {
   id: string;
   countryId: string;
@@ -63,6 +70,8 @@ export interface Trip {
   stops: TripStop[];
   /** Per-day titles and diary entries. Absent on trips saved before day folders existed. */
   days?: TripDay[];
+  /** What the trip cost, or the budget while it is still ahead. One amount in one currency. */
+  expense?: TripExpense;
   isFavourite: boolean;
 }
 

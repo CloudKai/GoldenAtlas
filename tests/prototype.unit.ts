@@ -7,6 +7,7 @@ import {
 import { allPhotos, deriveStatistics, photosForScope, togglePhotoFavourite, validateTrip } from "../src/app/lib/selectors";
 import type { AppState, Trip } from "../src/app/types/domain";
 import { migrateState } from "../src/app/lib/local-repository";
+import { addCompanion, currencyOptions, expenseProblem, expenseTotals, formatMoney, parseAmount, setCoverPhoto } from "../src/app/lib/trip-extras";
 import {
   addDays, addDayToTrip, canRemoveLastDay, datesInRange, dayFolders, daysUntil, hasStarted, movePhotoToDay, placePhotosInTrip, planDaySync,
   removeLastDay, strandedDays, tripStatus, updateDay, updatePhoto,
@@ -364,4 +365,59 @@ test("day diaries load from the database and respect its length limits", () => {
 test("trips saved before day folders existed load with an empty day list", () => {
   const migrated = migrateState({ trips: [{ ...trip(), days: undefined }, { ...trip({ id: "b" }), days: [{ date: "2025-01-01", notes: "kept" }] }] }, "user-3");
   assert.deepEqual(migrated.trips.map((item) => item.days), [[], [{ date: "2025-01-01", notes: "kept" }]]);
+});
+
+// ---------------------------------------------------------------------------
+// Expenses, companions, and cover photo
+// ---------------------------------------------------------------------------
+
+test("typed amounts are read leniently and bad ones are rejected", () => {
+  assert.equal(parseAmount("1,234.5"), 1234.5);
+  assert.equal(parseAmount("$ 80"), 80);
+  assert.equal(parseAmount("89.999"), 90);
+  assert.equal(parseAmount(".5"), 0.5);
+  assert.equal(parseAmount("0"), 0);
+  for (const bad of ["", " ", ".", "abc", "-5", "1e5", "12.3.4", "99999999999"]) assert.equal(parseAmount(bad), undefined, `rejects ${JSON.stringify(bad)}`);
+});
+
+test("expenses are validated and totalled per currency", () => {
+  assert.equal(expenseProblem(undefined), null);
+  assert.equal(expenseProblem({ amount: 120.5, currency: "SGD" }), null);
+  assert.match(expenseProblem({ amount: -1, currency: "SGD" }) ?? "", /between 0/);
+  assert.match(expenseProblem({ amount: 5, currency: "sg" }) ?? "", /currency/);
+  const totals = expenseTotals([{ expense: { amount: 100.1, currency: "SGD" } }, { expense: { amount: 0.2, currency: "SGD" } }, { expense: { amount: 50, currency: "JPY" } }, {}]);
+  assert.deepEqual(totals, [{ currency: "SGD", amount: 100.3, trips: 2 }, { currency: "JPY", amount: 50, trips: 1 }]);
+  assert.equal(formatMoney(1250, "USD").replace(/\s/g, ""), "$1,250");
+  assert.equal(formatMoney(5, "N"), "N 5.00", "a malformed currency code never throws");
+  assert.equal(currencyOptions(["SGD", "xx", undefined]).filter((code) => code === "SGD").length, 1);
+  assert.ok(currencyOptions(["XOF"]).includes("XOF"));
+});
+
+test("every country has a usable default currency except Antarctica", () => {
+  assert.equal(getCountry("SG")?.currency, "SGD");
+  assert.equal(getCountry("JP")?.currency, "JPY");
+  assert.equal(getCountry("AQ")?.currency, undefined);
+  const invalid = COUNTRY_LIST.filter((country) => country.currency !== undefined && !/^[A-Z]{3}$/.test(country.currency));
+  assert.deepEqual(invalid, []);
+});
+
+test("expenses round-trip through the database mapping", () => {
+  const withExpense = trip({ expense: { amount: 89.9, currency: "EUR" } });
+  assert.deepEqual([tripToRow(withExpense).expense_amount, tripToRow(withExpense).expense_currency], [89.9, "EUR"]);
+  assert.deepEqual([tripToRow(trip()).expense_amount, tripToRow(trip()).expense_currency], [null, null], "clearing an expense clears both columns");
+  const loaded = tripFromRow(tripRow({ expense_amount: 89.9, expense_currency: "EUR" }), { countryName: () => "France", memories: [], places: [], companions: [], urls: new Map(), cities });
+  assert.deepEqual(loaded.expense, { amount: 89.9, currency: "EUR" });
+  assert.equal(tripFromRow(tripRow(), { countryName: () => "France", memories: [], places: [], companions: [], urls: new Map(), cities }).expense, undefined);
+  assert.match(validateTrip({ ...trip(), expense: { amount: -3, currency: "EUR" } }).join(" "), /between 0/);
+  assert.equal(validateRemoteTrip(trip({ expense: { amount: 5, currency: "bad" } })).length, 1);
+});
+
+test("companions are added cleanly and the cover moves to the front", () => {
+  assert.deepEqual(addCompanion(["Sam"], "  alex   kim "), ["Sam", "alex kim"]);
+  assert.deepEqual(addCompanion(["Sam"], "SAM"), ["Sam"]);
+  assert.deepEqual(addCompanion(["Sam"], "   "), ["Sam"]);
+  const value = weekTrip({ photos: [photoOn("a", "2030-03-30"), photoOn("b", "2030-03-31"), photoOn("c", "2030-04-01")] });
+  assert.deepEqual(setCoverPhoto(value, "c").photos.map((photo) => photo.id), ["c", "a", "b"]);
+  assert.equal(setCoverPhoto(value, "a"), value, "choosing the current cover changes nothing");
+  assert.equal(setCoverPhoto(value, "missing"), value);
 });

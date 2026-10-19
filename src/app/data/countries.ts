@@ -7,6 +7,8 @@ export interface CountryInfo {
   continent: string;
   /** True for the 195 countries behind the "x of 195" statistic; territories and regions are still fully selectable. */
   countsTowardTotal: boolean;
+  /** ISO 4217 code of the local currency, used as the default for trip expenses. */
+  currency?: string;
 }
 
 const CONTINENT_NAMES: Record<string, string> = {
@@ -19,12 +21,13 @@ export function flagForCountry(id: string) {
   return String.fromCodePoint(...[...code].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65));
 }
 
-export const COUNTRY_LIST: readonly CountryInfo[] = COUNTRY_RECORDS.map(([id, name, continentCode, counts]) => ({
+export const COUNTRY_LIST: readonly CountryInfo[] = COUNTRY_RECORDS.map(([id, name, continentCode, counts, currency]) => ({
   id,
   name,
   flag: flagForCountry(id),
   continent: CONTINENT_NAMES[continentCode] ?? "World",
   countsTowardTotal: counts === 1,
+  currency: currency || undefined,
 }));
 
 const COUNTRY_BY_ID = new Map(COUNTRY_LIST.map((country) => [country.id, country]));

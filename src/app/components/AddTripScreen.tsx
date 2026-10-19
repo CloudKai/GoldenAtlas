@@ -6,7 +6,8 @@ import { CITY_OPTIONS } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
 import { sanitizePhoto, type PhotoAsset } from "../lib/local-repository";
 import { placePhotosInTrip, todayISO } from "../lib/trip-days";
-import type { MemoryPhoto, Trip } from "../types/domain";
+import { CompanionsField, ExpenseField } from "./TripExtras";
+import type { MemoryPhoto, Trip, TripExpense } from "../types/domain";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -29,6 +30,8 @@ export function AddTripScreen() {
   const [countryId, setCountryId] = useState(() => getCountry(searchParams.get("country"))?.id ?? "");
   const [selectedCityIds, setSelectedCityIds] = useState<string[]>([]);
   const [customPlaces, setCustomPlaces] = useState<string[]>([]);
+  const [companions, setCompanions] = useState<string[]>([]);
+  const [expense, setExpense] = useState<TripExpense | undefined>(undefined);
   const [citySearch, setCitySearch] = useState("");
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -43,7 +46,7 @@ export function AddTripScreen() {
   const [photos, setPhotos] = useState<MemoryPhoto[]>([]);
   const [photoAssets, setPhotoAssets] = useState<PhotoAsset[]>([]);
   const [photoStatus, setPhotoStatus] = useState("");
-  const isDirty = Boolean(title || startDate || endDate || journal || photos.length || customPlaces.length || selectedCityIds.length);
+  const isDirty = Boolean(title || startDate || endDate || journal || photos.length || customPlaces.length || selectedCityIds.length || companions.length || expense);
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => { if (isDirty) { event.preventDefault(); event.returnValue = ""; } };
@@ -107,7 +110,7 @@ export function AddTripScreen() {
         country: selectedCountry.name, countryFlag: selectedCountry.flag, startDate, endDate,
         duration: Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1),
         coverImage: photos[0]?.url || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&q=80&auto=format&fit=crop",
-        photos: placePhotosInTrip(photos, startDate, endDate || startDate), days: [], journal: journal.trim(), mood, rating, companions: [], places: [...selectedCities.map((city) => city.city), ...customPlaces],
+        photos: placePhotosInTrip(photos, startDate, endDate || startDate), days: [], journal: journal.trim(), mood, rating, companions, expense, places: [...selectedCities.map((city) => city.city), ...customPlaces],
         stops: selectedCities.map((city) => ({ id: `${id}-${city.id}`, cityId: city.id, city: city.city, countryId, region: city.region, latitude: city.latitude, longitude: city.longitude, arrivalDate: startDate, departureDate: endDate })),
         isFavourite: false,
       };
@@ -424,6 +427,11 @@ export function AddTripScreen() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-6 space-y-5">
+              <CompanionsField value={companions} onChange={setCompanions} />
+              <ExpenseField value={expense} onChange={setExpense} defaultCurrency={selectedCountry?.currency} planned={Boolean(startDate) && startDate > todayISO()} />
             </div>
           </div>
         )}

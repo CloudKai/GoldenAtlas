@@ -51,6 +51,10 @@ export function MapScreen() {
   // Aliased map shapes (for example Midway Islands) light up with the place they belong to.
   const mapVisitedIds = useMemo(() => visitedIds.flatMap(shapeIdsForCountry), [visitedIds]);
   const mapBucketListIds = useMemo(() => bucketListIds.flatMap(shapeIdsForCountry), [bucketListIds]);
+  const mapPlannedIds = useMemo(
+    () => [...new Set(appTrips.filter((trip) => !hasStarted(trip, today)).map((trip) => trip.countryId))].flatMap(shapeIdsForCountry),
+    [appTrips, today],
+  );
   const selectedCountry = selectedId
     ? (allCountries.find((country) => country.id === selectedId) ?? {
         id: selectedId,
@@ -243,6 +247,7 @@ export function MapScreen() {
           ref={mapRef}
           visitedIds={mapVisitedIds}
           bucketListIds={mapBucketListIds}
+          plannedIds={mapPlannedIds}
           selectedId={selectedId ? selectedShapeId : null}
           cityMarkers={cityMarkers}
           selectedCityId={selectedCityId}
@@ -260,6 +265,12 @@ export function MapScreen() {
             <div className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--map-bucket)" }} />
             <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Bucket list</span>
           </div>
+          {mapPlannedIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 w-2.5 rounded-full border-2 border-dashed" style={{ borderColor: "var(--gold)" }} />
+              <span style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>Planned</span>
+            </div>
+          )}
         </div>
 
         {/* Controls */}

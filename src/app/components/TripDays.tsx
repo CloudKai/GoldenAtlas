@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Camera, ChevronDown, Folder, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronDown, Folder, FolderOpen, Image as ImageIcon, Plus, Trash2, X } from "lucide-react";
 import type { MemoryPhoto, Trip } from "../types/domain";
+import { setCoverPhoto } from "../lib/trip-extras";
 import { addDays, addDayToTrip, canRemoveLastDay, dayFolders, movePhotoToDay, removeLastDay, todayISO, updateDay, updatePhoto, type DayFolder } from "../lib/trip-days";
 
 interface TripDaysProps {
@@ -69,6 +70,13 @@ export function TripDays({ trip, editing, busy, onChange, onAddPhotos, onAddDayN
               style={inputStyle}
             />
             {moveTargets(photo)}
+            {trip.photos[0]?.id === photo.id
+              ? <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--gold)" }}><ImageIcon size={13} /> Trip cover</p>
+              : (
+                <button type="button" onClick={() => onChange(setCoverPhoto(trip, photo.id))} className="flex min-h-9 items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--muted-foreground)" }} aria-label={`Use ${photo.caption || "this photo"} as the trip cover`}>
+                  <ImageIcon size={13} /> Make cover
+                </button>
+              )}
           </div>
           <button
             type="button"
