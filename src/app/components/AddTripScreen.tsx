@@ -98,8 +98,8 @@ export function AddTripScreen() {
         stops: selectedCities.map((city) => ({ id: `${id}-${city.id}`, cityId: city.id, city: city.city, countryId, region: city.region, latitude: city.latitude, longitude: city.longitude, arrivalDate: startDate, departureDate: endDate })),
         isFavourite: false,
       };
-      await saveTrip(trip, photoAssets);
-      navigate(`/app/trip/${id}`, { replace: true });
+      const warnings = await saveTrip(trip, photoAssets);
+      navigate(`/app/trip/${id}`, { replace: true, state: warnings.length ? { notice: warnings.join(" ") } : undefined });
     } catch (reason) { setErrors([reason instanceof Error ? reason.message : "Trip could not be saved."]); setStep(1); }
     finally { setSaving(false); }
   };

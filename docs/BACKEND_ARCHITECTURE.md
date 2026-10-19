@@ -2,9 +2,9 @@
 
 ## Scope
 
-This backend implements the secure server-side model in the product specification while leaving the existing Vite prototype mock-driven. It supports accounts, profiles/preferences, multiple trips per country, journals and trip metadata, private photo memories, companions, places, bucket-list countries, favourites, personal statistics, structured private exports, complete trip cleanup, abandoned-upload cleanup, and account deletion.
+This backend implements the secure server-side model in the product specification. The Vite web app uses it when `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set (otherwise it runs as a browser-only prototype), and the SwiftUI client always uses it. It supports accounts, profiles/preferences, multiple trips per country, journals and trip metadata, private photo memories, companions, places, bucket-list countries, favourites, personal statistics, structured private exports, complete trip cleanup, abandoned-upload cleanup, and account deletion.
 
-The future mobile client can build these product flows on the foundation:
+Clients build these product flows on the foundation:
 
 1. Register, verify email, sign in, and reset a password.
 2. Create one or more trips for a country and attach places and companions.

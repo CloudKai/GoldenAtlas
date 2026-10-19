@@ -1,6 +1,6 @@
 # Golden Atlas
 
-Golden Atlas is a private visual travel diary with a Supabase backend, a Vite design-reference prototype, and a native SwiftUI iPhone client. The Vite interface remains mock-driven; the iOS client in `ios/GoldenAtlas` connects to the real authenticated backend.
+Golden Atlas is a private visual travel diary with a Supabase backend, a Vite web app, and a native SwiftUI iPhone client. The web app runs as a browser-only design prototype by default and connects to the authenticated Supabase backend when configured (see [Connect the web app to Supabase](#connect-the-web-app-to-supabase)); the iOS client in `ios/GoldenAtlas` always uses the real backend.
 
 ## Prerequisites
 
@@ -19,7 +19,27 @@ If your shell still reports Node 20 after changing directories, run `nvm use` fi
 ./pnpmw dev
 ```
 
-Supabase Studio is available at `http://127.0.0.1:54323` and captured local verification mail at `http://127.0.0.1:54324`. Copy `.env.example` to `.env` only when client integration begins, then obtain local public credentials with `pnpm exec supabase status`. Never expose the service-role key to a client.
+Supabase Studio is available at `http://127.0.0.1:54323` and captured local verification mail at `http://127.0.0.1:54324`. The web dev server always runs at `http://127.0.0.1:5173` because auth redirects are allow-listed for that exact origin. Never expose the service-role or secret key to a client.
+
+## Connect the web app to Supabase
+
+Without configuration the web app is the browser-only prototype: accounts, trips, and photos live in this browser's IndexedDB and never leave the device. To use the real backend:
+
+```bash
+./pnpmw backend:start
+cp .env.example .env
+./pnpmw exec supabase status   # copy the API URL and the publishable key
+# set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env
+./pnpmw dev
+```
+
+With both variables set, the web app uses email/password auth with required email verification (open the link from the local mailbox at `http://127.0.0.1:54324`), Postgres through row-level security, private storage with ten-minute signed image URLs, and the Edge Functions for memory upload, deletion, and data export. The app refuses to start if the key looks like a service-role or secret key. The prototype-only admin console is disabled in this mode.
+
+Known limits of the web integration:
+
+- Photos are decoded and re-encoded in the browser (which removes EXIF/GPS) before upload; only JPEG and PNG inputs are supported.
+- The favourite country, theme, slideshow, and privacy toggles are still stored per device. The schema has no column for favourite country yet; adding one needs a new migration and regenerated types.
+- Google and Apple sign-in are unavailable until provider credentials are configured (see [hosted authentication](docs/HOSTED_AUTH.md)).
 
 Useful commands:
 

@@ -31,7 +31,13 @@ export interface PhotoAsset {
   userId: string;
   original: Blob;
   thumbnail: Blob;
+  width?: number;
+  height?: number;
 }
+
+// Mirrors the storage bucket limits so oversized renders are re-encoded instead of rejected by the server.
+const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 500 * 1024;
 
 function request<T>(value: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -279,18 +285,34 @@ export async function sanitizePhoto(file: File, userId: string): Promise<{ photo
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("The image could not be processed.")), "image/jpeg", quality));
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("The image could not be processed.")), "image/jpeg", quality));
+    return { blob, width: canvas.width, height: canvas.height };
   };
-  const original = await render(2600, .9);
-  const thumbnail = await render(720, .82);
-  bitmap.close();
+  const fitWithin = async (limit: number, attempts: Array<[number, number]>) => {
+    let result = await render(...attempts[0]);
+    for (const attempt of attempts.slice(1)) {
+      if (result.blob.size <= limit) break;
+      result = await render(...attempt);
+    }
+    if (result.blob.size > limit) throw new Error("This image could not be reduced to an uploadable size. Choose a smaller image.");
+    return result;
+  };
+  let rendered: Awaited<ReturnType<typeof render>>;
+  let thumbnailRender: Awaited<ReturnType<typeof render>>;
+  try {
+    // Re-encoding through a canvas also drops EXIF and GPS metadata.
+    rendered = await fitWithin(MAX_ORIGINAL_BYTES, [[2600, .9], [2200, .8], [1800, .7]]);
+    thumbnailRender = await fitWithin(MAX_THUMBNAIL_BYTES, [[720, .82], [720, .7], [600, .6], [480, .5]]);
+  } finally { bitmap.close(); }
+  const original = rendered.blob;
+  const thumbnail = thumbnailRender.blob;
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("The image could not be read.")); reader.readAsDataURL(original);
   });
   const id = crypto.randomUUID();
   return {
     photo: { id, url: dataUrl, thumbnailUrl: dataUrl, caption: file.name.replace(/\.[^.]+$/, ""), date: new Date().toISOString().slice(0, 10), isFavourite: false, size: original.size, mimeType: "image/jpeg" },
-    asset: { id, userId, original, thumbnail },
+    asset: { id, userId, original, thumbnail, width: rendered.width, height: rendered.height },
   };
 }
 

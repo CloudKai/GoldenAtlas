@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, ArrowLeft, Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import { ADMIN_USERNAME, localRepository } from "../lib/local-repository";
+import { isSupabaseConfigured } from "../lib/supabase";
 
 export function AdminLoginScreen() {
+  // The prototype admin console only inspects browser-local data, so it is unavailable with a hosted backend.
+  return isSupabaseConfigured ? <Navigate to="/" replace /> : <LocalAdminLogin />;
+}
+
+function LocalAdminLogin() {
   const navigate = useNavigate();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [username, setUsername] = useState(ADMIN_USERNAME);
