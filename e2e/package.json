@@ -2,6 +2,6 @@
   "name": "golden-atlas-e2e",
   "private": true,
   "type": "module",
-  "scripts": { "test": "playwright test" },
+  "scripts": { "test": "playwright test", "screenshots": "CAPTURE=1 playwright test screenshots" },
   "devDependencies": { "@playwright/test": "^1.49.0" }
 }

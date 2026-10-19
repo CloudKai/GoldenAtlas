@@ -2,6 +2,18 @@
 
 Golden Atlas is a private visual travel diary with a Supabase backend, a Vite web app, and a native SwiftUI iPhone client. The web app runs as a browser-only design prototype by default and connects to the authenticated Supabase backend when configured (see [Connect the web app to Supabase](#connect-the-web-app-to-supabase)); the iOS client in `ios/GoldenAtlas` always uses the real backend.
 
+## Preview
+
+![Golden Atlas: world map, day folders, memories and insights](docs/images/preview/overview.png)
+
+<table>
+<tr><td align="center" valign="top"><img src="docs/images/preview/welcome.png" width="170" alt="Welcome"><br><sub>Welcome</sub></td><td align="center" valign="top"><img src="docs/images/preview/map.png" width="170" alt="World map"><br><sub>World map</sub></td><td align="center" valign="top"><img src="docs/images/preview/map-country.png" width="170" alt="Country sheet"><br><sub>Country sheet</sub></td><td align="center" valign="top"><img src="docs/images/preview/trips.png" width="170" alt="Trips and upcoming"><br><sub>Trips and upcoming</sub></td><td align="center" valign="top"><img src="docs/images/preview/trip-days.png" width="170" alt="Day folders"><br><sub>Day folders</sub></td></tr>
+<tr><td align="center" valign="top"><img src="docs/images/preview/memories.png" width="170" alt="Memories"><br><sub>Memories</sub></td><td align="center" valign="top"><img src="docs/images/preview/insights.png" width="170" alt="Insights"><br><sub>Insights</sub></td><td align="center" valign="top"><img src="docs/images/preview/map-dark.png" width="170" alt="Dark mode map"><br><sub>Dark mode map</sub></td><td align="center" valign="top"><img src="docs/images/preview/trip-days-dark.png" width="170" alt="Dark mode days"><br><sub>Dark mode days</sub></td></tr>
+<tr><td align="center" valign="top"><img src="docs/images/preview/trip-book.png" width="330" alt="Trip book"><br><sub>Trip book</sub></td></tr>
+</table>
+
+> **These are design previews, not screenshots of the running app.** They are rendered from the app's real theme colors, layout and world-map geometry, with sample trips and illustrated stand-in photos (no real photographs or personal data). The map shapes come from the `@svg-maps/world` package (CC BY 4.0). To replace them with true screenshots, run the capture script (see [Refreshing the preview images](#refreshing-the-preview-images)).
+
 ## Prerequisites
 
 - Node.js 22 (`nvm use` reads `.nvmrc`)
@@ -92,6 +104,18 @@ After staging review, the verified hosted workflow is:
 ```
 
 Do not automate production deployment from the verification workflow. Configure hosted Auth URLs/providers, scheduler secret calls, SMTP, backups, and alerts before release.
+
+## Refreshing the preview images
+
+`e2e/tests/screenshots.spec.ts` drives the real app (guest session, generated sample photos) and writes screenshots to `docs/images/app/`. It is skipped unless `CAPTURE=1` is set:
+
+```bash
+./pnpmw install --frozen-lockfile
+cd e2e && npm install && npx playwright install chromium
+CAPTURE=1 npx playwright test screenshots
+```
+
+Then point the images in this README at `docs/images/app/` instead of `docs/images/preview/`.
 
 ## Documentation
 
