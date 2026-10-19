@@ -14,7 +14,7 @@ function AppleIcon() {
 export function SignInScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAppData();
+  const { signIn, remote, requestPasswordReset } = useAppData();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,9 +35,14 @@ export function SignInScreen() {
     finally { setLoading(false); }
   };
 
-  const sendReset = () => {
+  const sendReset = async () => {
     if (!email.includes("@")) return setError("Enter the email address linked to your account.");
-    setError("Email reset links become available after the hosted authentication service is connected. If you are signed in, change your password from Profile.");
+    if (!remote) return setError("Email reset links become available after the hosted authentication service is connected. If you are signed in, change your password from Profile.");
+    setLoading(true);
+    setError("");
+    try { await requestPasswordReset(email); setResetSent(true); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "The reset email could not be sent."); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -70,7 +75,7 @@ export function SignInScreen() {
               <label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600 }}>Email</span><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="h-12 w-full rounded-xl px-4 outline-none focus:ring-2" style={{ background: "var(--input-background)", color: "var(--foreground)", border: "1px solid var(--border)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /></label>
               {!resetMode && <label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600 }}>Password</span><span className="relative block"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleSignIn()} placeholder="Your password" className="h-12 w-full rounded-xl px-4 pr-12 outline-none focus:ring-2" style={{ background: "var(--input-background)", color: "var(--foreground)", border: "1px solid var(--border)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 p-1" style={{ color: "var(--muted-foreground)" }} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>}
             {!resetMode && <button type="button" onClick={() => { setResetMode(true); setError(""); }} className="mt-2 block w-full text-right" style={{ color: "var(--gold)", fontSize: "12px", fontWeight: 600 }}>Forgot password?</button>}
-            <button type="submit" disabled={loading} className="mt-5 flex h-13 w-full items-center justify-center rounded-xl font-semibold disabled:opacity-60" style={{ height: "52px", background: "var(--gold)", color: "#1A1814" }}>{loading ? "Signing in…" : resetMode ? "Send reset link" : "Sign in"}</button>
+            <button type="submit" disabled={loading} className="mt-5 flex h-13 w-full items-center justify-center rounded-xl font-semibold disabled:opacity-60" style={{ height: "52px", background: "var(--gold)", color: "#1A1814" }}>{loading ? (resetMode ? "Sending…" : "Signing in…") : resetMode ? "Send reset link" : "Sign in"}</button>
             </form>
 
             {!resetMode && <>
@@ -81,7 +86,7 @@ export function SignInScreen() {
               </div>
               <p className="mt-2 text-center text-[11px]" style={{ color: "var(--muted-foreground)" }}>Google and Apple are available after provider setup.</p>
               <p className="mt-5 text-center" style={{ color: "var(--muted-foreground)", fontSize: "13px" }}>New to Golden Atlas? <button type="button" onClick={() => navigate("/signup")} style={{ color: "var(--gold)", fontWeight: 600 }}>Create account</button></p>
-              <button type="button" onClick={() => navigate("/admin-login")} className="mx-auto mt-3 flex min-h-11 items-center justify-center gap-2 px-4 text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}><ShieldCheck size={15} />Admin access</button>
+              {!remote && <button type="button" onClick={() => navigate("/admin-login")} className="mx-auto mt-3 flex min-h-11 items-center justify-center gap-2 px-4 text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}><ShieldCheck size={15} />Admin access</button>}
             </>}
           </>
         )}

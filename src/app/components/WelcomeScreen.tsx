@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Shield } from "lucide-react";
+import { useAppData } from "../contexts/AppDataContext";
 
 export function WelcomeScreen() {
   const navigate = useNavigate();
+  const { startGuest } = useAppData();
+  const [startingGuest, setStartingGuest] = useState(false);
+  const [guestError, setGuestError] = useState("");
+
+  const tryAsGuest = async () => {
+    setStartingGuest(true);
+    setGuestError("");
+    try { await startGuest(); navigate("/app/map", { replace: true }); }
+    catch (reason) { setGuestError(reason instanceof Error ? reason.message : "Guest mode couldn’t start. Try again."); setStartingGuest(false); }
+  };
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#1A1814]">
@@ -60,6 +72,19 @@ export function WelcomeScreen() {
             >
               Sign In
             </button>
+
+            <button
+              type="button"
+              onClick={tryAsGuest}
+              disabled={startingGuest}
+              className="w-full h-12 rounded-2xl flex items-center justify-center transition-opacity active:opacity-80 disabled:opacity-60"
+              style={{ color: "var(--gold)", fontSize: "15px", fontWeight: 600 }}
+            >
+              {startingGuest ? "Starting…" : "Try as guest"}
+            </button>
+            <p className="text-center -mt-1" role={guestError ? "alert" : undefined} style={{ fontSize: "11px", lineHeight: 1.45, color: guestError ? "#F08A8A" : "rgba(255,255,255,0.45)" }}>
+              {guestError || "No account needed. Guest trips and photos stay on this device and are deleted when you leave."}
+            </p>
 
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.15)" }} />

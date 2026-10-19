@@ -2,6 +2,8 @@
 
 Local email/password authentication is configured with required email verification, password reset, a ten-character letters-and-digits minimum, refresh-token rotation, and allow-listed `goldenatlas://` callback/reset links. Local email appears in Inbucket at `http://127.0.0.1:54324`.
 
+The web app confirms email addresses at `/auth/callback` and resets passwords at `/auth/reset-password`, using the PKCE flow. Both exact URLs (for example `http://127.0.0.1:5173/auth/callback` locally, and your production origin when hosted) must be in the Auth redirect allow-list or Supabase falls back to the Site URL.
+
 Before hosting:
 
 1. Create and link a Supabase project, configure production Site URL and exact web/native redirect allow-list entries, then deploy migrations/functions.

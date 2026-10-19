@@ -22,6 +22,7 @@ import {
   Play,
   Shield,
   Trash2,
+  UserPlus,
   UserRound,
   X,
 } from "lucide-react";
@@ -208,7 +209,7 @@ function ChoiceList<T extends string>({ values, selected, onSelect, descriptionF
   );
 }
 
-function ChangePasswordForm({ onComplete, changePassword, isDemo }: { onComplete: (message: string) => void; changePassword: (currentPassword: string, newPassword: string) => Promise<void>; isDemo: boolean }) {
+function ChangePasswordForm({ onComplete, changePassword, isDemo, remote }: { onComplete: (message: string) => void; changePassword: (currentPassword: string, newPassword: string) => Promise<void>; isDemo: boolean; remote: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -228,21 +229,33 @@ function ChangePasswordForm({ onComplete, changePassword, isDemo }: { onComplete
       <label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600 }}>New password</span><input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" className="h-12 w-full rounded-xl border px-4 outline-none focus:ring-2" style={{ background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /></label>
       <label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600 }}>Confirm new password</span><input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" className="h-12 w-full rounded-xl border px-4 outline-none focus:ring-2" style={{ background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /></label>
       {error && <p role="alert" style={{ color: "#E25555", fontSize: "12px" }}>{error}</p>}
-      <p style={{ color: "var(--muted-foreground)", fontSize: "11px", lineHeight: 1.45 }}>{isDemo ? "The shared demo account cannot change its password." : "Use at least 10 characters. The derived password is updated in this browser without storing plaintext."}</p>
+      <p style={{ color: "var(--muted-foreground)", fontSize: "11px", lineHeight: 1.45 }}>{isDemo ? "The shared demo account cannot change its password." : remote ? "Use at least 10 characters with letters and numbers. You will stay signed in on this device." : "Use at least 10 characters. The derived password is updated in this browser without storing plaintext."}</p>
       <button type="button" disabled={isDemo} onClick={submit} className="h-12 w-full rounded-xl font-semibold disabled:opacity-40" style={{ background: "var(--gold)", color: "#1A1814" }}>Update password</button>
     </div>
   );
 }
 
-function DeleteAccountForm({ onDelete, onCancel }: { onDelete: () => void; onCancel: () => void }) {
+function DeleteAccountForm({ onDelete, onCancel, remote }: { onDelete: (password: string) => Promise<void>; onCancel: () => void; remote: boolean }) {
   const [confirmation, setConfirmation] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const inputStyle = { background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "#E25555" } as React.CSSProperties;
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    try { await onDelete(password); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Your account could not be deleted. Nothing further has been removed; try again."); setBusy(false); }
+  };
   return (
     <div>
       <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(226,85,85,0.12)" }}><AlertTriangle size={24} color="#E25555" /></span>
-      <p className="mb-4 text-center" style={{ color: "var(--muted-foreground)", fontSize: "13px", lineHeight: 1.55 }}>Deletion is permanent. Enter <strong style={{ color: "var(--foreground)" }}>DELETE</strong> to remove this local account, its trips and stored photo blobs from this browser.</p>
-      <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Type DELETE" autoCapitalize="characters" className="mb-3 h-12 w-full rounded-xl border px-4 text-center outline-none focus:ring-2" style={{ background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "#E25555" } as React.CSSProperties} />
-      <button type="button" disabled={confirmation !== "DELETE"} onClick={onDelete} className="mb-2 h-12 w-full rounded-xl font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "#C74444" }}>Delete account</button>
-      <button type="button" onClick={onCancel} className="h-12 w-full rounded-xl font-medium" style={{ background: "var(--muted)", color: "var(--foreground)" }}>Cancel</button>
+      <p className="mb-4 text-center" style={{ color: "var(--muted-foreground)", fontSize: "13px", lineHeight: 1.55 }}>Deletion is permanent. {remote ? "This removes your account, trips, journals and every stored photo from Golden Atlas. Consider downloading your data first." : <>Enter <strong style={{ color: "var(--foreground)" }}>DELETE</strong> to remove this local account, its trips and stored photo blobs from this browser.</>}</p>
+      {remote && <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Confirm your password" autoComplete="current-password" aria-label="Confirm your password" className="mb-3 h-12 w-full rounded-xl border px-4 text-center outline-none focus:ring-2" style={inputStyle} />}
+      <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Type DELETE" autoCapitalize="characters" aria-label="Type DELETE to confirm" className="mb-3 h-12 w-full rounded-xl border px-4 text-center outline-none focus:ring-2" style={inputStyle} />
+      {error && <p role="alert" className="mb-3 text-center" style={{ color: "#E25555", fontSize: "12px" }}>{error}</p>}
+      <button type="button" disabled={confirmation !== "DELETE" || busy || (remote && !password)} onClick={submit} className="mb-2 h-12 w-full rounded-xl font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "#C74444" }}>{busy ? "Deleting…" : "Delete account"}</button>
+      <button type="button" disabled={busy} onClick={onCancel} className="h-12 w-full rounded-xl font-medium disabled:opacity-40" style={{ background: "var(--muted)", color: "var(--foreground)" }}>Cancel</button>
     </div>
   );
 }
@@ -250,7 +263,7 @@ function DeleteAccountForm({ onDelete, onCancel }: { onDelete: () => void; onCan
 export function ProfileScreen() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { user, state, statistics, updateProfile, changePassword, signOut: endSession, deleteAccount } = useAppData();
+  const { user, state, statistics, updateProfile, changePassword, signOut: endSession, deleteAccount, remote, exportData } = useAppData();
   const [panel, setPanel] = useState<ActivePanel>(null);
   const [slideshow, setSlideshow] = useState<SlideshowPreferences>(getSlideshowPreferences);
   const [imageQuality, setImageQuality] = useState<ImageQuality>(getImageQuality);
@@ -290,7 +303,7 @@ export function ProfileScreen() {
     if (!name) return setProfileError("Enter your name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setProfileError("Enter a valid email address.");
     const next = { name, email };
-    try { await updateProfile(name, email); setProfile(next); setPanel(null); setNotice("Profile updated"); }
+    try { const message = await updateProfile(name, email); setProfile(next); setPanel(null); setNotice(message ?? "Profile updated"); }
     catch (reason) { setProfileError(reason instanceof Error ? reason.message : "Profile could not be updated."); }
   };
 
@@ -301,7 +314,22 @@ export function ProfileScreen() {
     setPanel(null);
   };
 
-  const downloadData = () => {
+  const saveBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "golden-atlas-export.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadData = async () => {
+    if (exportData) {
+      setNotice("Preparing your export…");
+      try { saveBlob(await exportData()); setNotice("Export downloaded. Its link expires shortly."); }
+      catch (reason) { setNotice(reason instanceof Error ? reason.message : "The export could not be prepared."); }
+      return;
+    }
     const payload = {
       exportedAt: new Date().toISOString(),
       profile,
@@ -310,18 +338,24 @@ export function ProfileScreen() {
       preferences: { theme, slideshow, imageQuality, removeLocation, analytics, reducedMotion },
       note: "Local prototype export. Photo binary data is not embedded; photo metadata is included.",
     };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "golden-atlas-export.json";
-    anchor.click();
-    URL.revokeObjectURL(url);
+    saveBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     setNotice("Export prepared");
   };
 
+  const isGuest = Boolean(user?.isGuest);
+  const GUEST_LEAVE_WARNING = "Your guest trips and photos will be deleted from this browser and can’t be recovered. Continue?";
+
   const signOut = () => {
+    if (isGuest && !window.confirm(GUEST_LEAVE_WARNING)) return;
     endSession();
     navigate("/", { replace: true });
+  };
+
+  // Guest data stays on this device, so it cannot move into the new account.
+  const createAccountFromGuest = () => {
+    if (!window.confirm(GUEST_LEAVE_WARNING)) return;
+    endSession();
+    navigate("/signup", { replace: true });
   };
 
   const finishPanelAction = (message: string) => {
@@ -347,12 +381,12 @@ export function ProfileScreen() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate" style={{ color: "var(--foreground)", fontSize: "18px", fontWeight: 650 }}>{profile.name}</p>
-              <p className="mt-0.5 truncate" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{profile.email}</p>
-              <p className="mt-1" style={{ color: "var(--gold)", fontSize: "10px", fontWeight: 650 }}>Private traveller profile</p>
+              <p className="mt-0.5 truncate" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>{isGuest ? "Guest session" : profile.email}</p>
+              <p className="mt-1" style={{ color: "var(--gold)", fontSize: "10px", fontWeight: 650 }}>{isGuest ? "Stays on this device only" : "Private traveller profile"}</p>
             </div>
-            <button type="button" onClick={openProfileEditor} className="flex h-11 items-center gap-1.5 rounded-xl border px-3 transition-colors hover:bg-accent" style={{ borderColor: "var(--border)", color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
+            {!isGuest && <button type="button" onClick={openProfileEditor} className="flex h-11 items-center gap-1.5 rounded-xl border px-3 transition-colors hover:bg-accent" style={{ borderColor: "var(--border)", color: "var(--foreground)", fontSize: "12px", fontWeight: 600 }}>
               <Pencil size={13} /> Edit
-            </button>
+            </button>}
           </div>
           <div className="grid grid-cols-3 border-t" style={{ borderColor: "var(--border)" }}>
             {[
@@ -368,10 +402,14 @@ export function ProfileScreen() {
           </div>
         </section>
 
-        <SectionHeader title="Account" description="Personal details and sign-in security" />
+        <SectionHeader title="Account" description={isGuest ? "You’re browsing as a guest" : "Personal details and sign-in security"} />
         <SettingsCard>
-          <SettingRow icon={UserRound} label="Personal information" description="Name and email address" value={profile.name.split(" ")[0]} onPress={openProfileEditor} />
-          <SettingRow icon={LockKeyhole} label="Password & security" description="Update your account password" onPress={() => setPanel("change-password")} />
+          {isGuest ? (
+            <SettingRow icon={UserPlus} label="Create an account" description="Keep your atlas across devices. Guest trips can’t be moved over." onPress={createAccountFromGuest} />
+          ) : (<>
+            <SettingRow icon={UserRound} label="Personal information" description="Name and email address" value={profile.name.split(" ")[0]} onPress={openProfileEditor} />
+            <SettingRow icon={LockKeyhole} label="Password & security" description="Update your account password" onPress={() => setPanel("change-password")} />
+          </>)}
         </SettingsCard>
 
         <SectionHeader title="App preferences" description="Control how Golden Atlas looks and behaves" />
@@ -404,7 +442,7 @@ export function ProfileScreen() {
         <SettingsCard>
           <ToggleRow icon={MapPin} label="Remove exact location" description="Strip GPS metadata before upload" value={removeLocation} onChange={(value) => { setRemoveLocation(value); localStorage.setItem("golden-atlas:remove-location", String(value)); }} />
           <ToggleRow icon={Shield} label="Anonymous analytics" description="Share anonymous app-performance data" value={analytics} onChange={(value) => { setAnalytics(value); localStorage.setItem("golden-atlas:analytics", String(value)); }} />
-          <SettingRow icon={Download} label="Download your data" description="Prepare a private JSON export" onPress={downloadData} />
+          <SettingRow icon={Download} label="Download your data" description={remote ? "Prepare a private JSON export (link expires in minutes)" : "Prepare a private JSON export"} onPress={downloadData} />
           <SettingRow icon={Shield} label="Privacy policy" description="How Golden Atlas protects your data" onPress={() => navigate("/legal/privacy")} />
         </SettingsCard>
 
@@ -417,8 +455,8 @@ export function ProfileScreen() {
 
         <SectionHeader title="Session" />
         <SettingsCard className="mb-6">
-          <SettingRow icon={LogOut} label="Sign out" description="Sign out on this device" onPress={signOut} />
-          <SettingRow icon={Trash2} label="Delete account" description="Permanently remove your account and data" danger onPress={() => setPanel("delete-account")} />
+          <SettingRow icon={LogOut} label={isGuest ? "Leave guest mode" : "Sign out"} description={isGuest ? "Delete guest trips and photos from this browser" : "Sign out on this device"} onPress={signOut} />
+          {!isGuest && <SettingRow icon={Trash2} label="Delete account" description="Permanently remove your account and data" danger onPress={() => setPanel("delete-account")} />}
         </SettingsCard>
       </div>
 
@@ -431,11 +469,11 @@ export function ProfileScreen() {
       {panel === "image-quality" && <Sheet title="Image quality" description="Choose how much space photos use on this device." onClose={() => setPanel(null)}><ChoiceList<ImageQuality> values={["Original", "High", "Optimised"]} selected={imageQuality} descriptionFor={(value) => ({ Original: "Maximum quality and storage use", High: "Excellent quality with smaller files", Optimised: "Smallest files for everyday viewing" })[value]} onSelect={(value) => { setImageQuality(value); saveImageQuality(value); setPanel(null); }} /></Sheet>}
       {panel === "privacy" && <Sheet title="Privacy by default" description="A private diary, not a public social profile." onClose={() => setPanel(null)}><div className="space-y-4" style={{ color: "var(--muted-foreground)", fontSize: "13px", lineHeight: 1.6 }}><p>Your map, trips, photos and journal entries are private to your account. Golden Atlas does not include a public profile or social feed.</p><p>Private image links expire and are never saved as permanent public URLs. Exact GPS metadata is removed by the client when the privacy setting is enabled.</p><div className="rounded-2xl p-4" style={{ background: "var(--muted)" }}><p style={{ color: "var(--foreground)", fontWeight: 650 }}>Prototype limitation</p><p className="mt-1">The hosted privacy policy and complete account-deletion orchestration remain deployment milestones.</p></div></div></Sheet>}
       {panel === "edit-profile" && <Sheet title="Personal information" description="Keep your account details accurate and up to date." onClose={() => setPanel(null)}><div className="space-y-4"><label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600 }}>Full name</span><input value={draftProfile.name} onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })} autoComplete="name" className="h-12 w-full rounded-xl border px-4 outline-none focus:ring-2" style={{ background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /></label><label className="block"><span className="mb-1.5 block" style={{ color: "var(--muted-foreground)", fontSize: "11px", fontWeight: 600 }}>Email address</span><input type="email" value={draftProfile.email} onChange={(event) => setDraftProfile({ ...draftProfile, email: event.target.value })} autoComplete="email" className="h-12 w-full rounded-xl border px-4 outline-none focus:ring-2" style={{ background: "var(--input-background)", borderColor: "var(--border)", color: "var(--foreground)", "--tw-ring-color": "var(--gold)" } as React.CSSProperties} /></label>{profileError && <p role="alert" style={{ color: "#E25555", fontSize: "12px" }}>{profileError}</p>}<button type="button" onClick={saveProfile} className="h-12 w-full rounded-xl font-semibold" style={{ background: "var(--gold)", color: "#1A1814" }}>Save changes</button></div></Sheet>}
-      {panel === "change-password" && <Sheet title="Password & security" description="Choose a strong password you do not use elsewhere." onClose={() => setPanel(null)}><ChangePasswordForm isDemo={Boolean(user?.isDemo)} changePassword={changePassword} onComplete={finishPanelAction} /></Sheet>}
+      {panel === "change-password" && <Sheet title="Password & security" description="Choose a strong password you do not use elsewhere." onClose={() => setPanel(null)}><ChangePasswordForm isDemo={Boolean(user?.isDemo)} remote={remote} changePassword={changePassword} onComplete={finishPanelAction} /></Sheet>}
       {panel === "help" && <Sheet title="Help & support" description="Quick answers for the most common questions." onClose={() => setPanel(null)}><div className="space-y-3">{[{ q: "How do I add another city?", a: "Open Add trip and add each city as a separate stop." }, { q: "Who can see my memories?", a: "Only you. Golden Atlas has no public profile or social feed." }, { q: "Why is a photo location missing?", a: "Exact GPS metadata is removed by default for privacy." }].map(({ q, a }) => <div key={q} className="rounded-2xl border p-4" style={{ borderColor: "var(--border)" }}><p style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 650 }}>{q}</p><p className="mt-1" style={{ color: "var(--muted-foreground)", fontSize: "12px", lineHeight: 1.5 }}>{a}</p></div>)}<button type="button" onClick={() => finishPanelAction("Support request noted for client integration")} className="h-12 w-full rounded-xl border font-semibold" style={{ borderColor: "var(--border)", color: "var(--foreground)" }}>Contact support</button></div></Sheet>}
       {panel === "terms" && <Sheet title="Terms of service" description="The plain-language prototype terms." onClose={() => setPanel(null)}><div className="space-y-4" style={{ color: "var(--muted-foreground)", fontSize: "13px", lineHeight: 1.6 }}><p>Use Golden Atlas only for content you own or have permission to store. Do not upload unlawful, harmful or infringing material.</p><p>You remain responsible for maintaining access to your account and reviewing your exports before relying on them as backups.</p><p>The hosted legal terms will replace this prototype summary before public release.</p></div></Sheet>}
       {panel === "about" && <Sheet title="About Golden Atlas" description="Your private world of travel memories." onClose={() => setPanel(null)}><div className="text-center"><span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "var(--gold)", color: "#1A1814" }}><Globe2 size={26} /></span><p style={{ color: "var(--foreground)", fontSize: "16px", fontWeight: 700 }}>Golden Atlas</p><p className="mt-1" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>Prototype version 0.1.0</p><div className="mt-5 rounded-2xl border p-4 text-left" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "12px", lineHeight: 1.5 }}><p>Country reference data: GeoNames, CC BY 4.0.</p><p className="mt-2">World map: @svg-maps/world, CC BY 4.0.</p></div></div></Sheet>}
-      {panel === "delete-account" && <Sheet title="Delete account?" description="Review this carefully before continuing." onClose={() => setPanel(null)}><DeleteAccountForm onDelete={async () => { await deleteAccount(); ["golden-atlas:theme", "golden-atlas:slideshow", "golden-atlas:image-quality", "golden-atlas:remove-location", "golden-atlas:analytics", "golden-atlas:reduced-motion"].forEach((key) => localStorage.removeItem(key)); navigate("/", { replace: true }); }} onCancel={() => setPanel(null)} /></Sheet>}
+      {panel === "delete-account" && <Sheet title="Delete account?" description="Review this carefully before continuing." onClose={() => setPanel(null)}><DeleteAccountForm remote={remote} onDelete={async (password) => { await deleteAccount(remote ? password : undefined); ["golden-atlas:theme", "golden-atlas:slideshow", "golden-atlas:image-quality", "golden-atlas:remove-location", "golden-atlas:analytics", "golden-atlas:reduced-motion"].forEach((key) => localStorage.removeItem(key)); navigate("/", { replace: true }); }} onCancel={() => setPanel(null)} /></Sheet>}
     </div>
   );
 }

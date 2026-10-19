@@ -15,6 +15,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { MemoriesScreen } from "./components/MemoriesScreen";
 import { TripDetailScreen } from "./components/TripDetailScreen";
 import { LegalScreen } from "./components/LegalScreen";
+import { AuthCallbackScreen } from "./components/AuthCallbackScreen";
+import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
 import { AdminLoginScreen } from "./components/AdminLoginScreen";
 import { AdminProtectedRoute } from "./components/AdminProtectedRoute";
 import { AdminScreen } from "./components/AdminScreen";
@@ -36,6 +38,14 @@ export const router = createBrowserRouter([
       {
         path: "/signup",
         Component: SignUpScreen,
+      },
+      {
+        path: "/auth/callback",
+        Component: AuthCallbackScreen,
+      },
+      {
+        path: "/auth/reset-password",
+        Component: ResetPasswordScreen,
       },
       {
         path: "/onboarding",

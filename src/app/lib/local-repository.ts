@@ -31,7 +31,13 @@ export interface PhotoAsset {
   userId: string;
   original: Blob;
   thumbnail: Blob;
+  width?: number;
+  height?: number;
 }
+
+// Mirrors the storage bucket limits so oversized renders are re-encoded instead of rejected by the server.
+const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 500 * 1024;
 
 function request<T>(value: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -156,6 +162,38 @@ export class LocalRepository {
     return { user: publicUser, state: emptyState(user.id) };
   }
 
+  /** Removes every guest account with its trips and photos. Guest sessions cannot be resumed once their tab is gone. */
+  private async purgeGuests() {
+    const db = await this.open();
+    const tx = db.transaction(["accounts", "states", "photos"], "readwrite");
+    const accounts = tx.objectStore("accounts");
+    const states = tx.objectStore("states");
+    const photos = tx.objectStore("photos");
+    const everyone = await request(accounts.getAll()) as AccountRecord[];
+    for (const guest of everyone.filter((account) => account.isGuest)) {
+      accounts.delete(guest.id);
+      states.delete(guest.id);
+      const ids = await request(photos.index("userId").getAllKeys(guest.id));
+      ids.forEach((id) => photos.delete(id));
+    }
+    await transactionDone(tx);
+  }
+
+  /** Starts a passwordless guest session whose data never leaves this browser. */
+  async createGuest() {
+    await this.purgeGuests();
+    const db = await this.open();
+    const id = crypto.randomUUID();
+    // `.invalid` is a reserved TLD, so this address can never belong to a real person or receive mail.
+    const user: AccountRecord = { id, name: "Guest", email: `guest-${id}@guest.invalid`, isDemo: false, isGuest: true, createdAt: new Date().toISOString() };
+    const tx = db.transaction(["accounts", "states"], "readwrite");
+    tx.objectStore("accounts").add(user);
+    tx.objectStore("states").add(emptyState(id));
+    await transactionDone(tx);
+    sessionStorage.setItem(SESSION_KEY, id);
+    return { user: user as AppUser, state: emptyState(id) };
+  }
+
   async signIn(email: string, password: string) {
     const { store } = await this.store("accounts");
     const record = await request(store.index("email").get(email.trim().toLowerCase())) as AccountRecord | undefined;
@@ -211,7 +249,7 @@ export class LocalRepository {
       request(stateRequest) as Promise<AppState[]>,
       request(photoRequest),
     ]);
-    const accountIds = new Set(allAccounts.filter((account) => !account.isDemo).map((account) => account.id));
+    const accountIds = new Set(allAccounts.filter((account) => !account.isDemo && !account.isGuest).map((account) => account.id));
     return {
       accounts: accountIds.size,
       trips: allStates.filter((state) => accountIds.has(state.userId)).reduce((total, state) => total + state.trips.length, 0),
@@ -235,6 +273,7 @@ export class LocalRepository {
     const db = await this.open();
     const record = await request(db.transaction("accounts").objectStore("accounts").get(userId)) as AccountRecord;
     if (record.isDemo) throw new Error("The demo account password cannot be changed.");
+    if (record.isGuest) throw new Error("Guest sessions have no password. Create an account to set one.");
     const current = await passwordDigest(currentPassword, base64ToBytes(record.passwordSalt!));
     if (current.hash !== record.passwordHash) throw new Error("Current password is incorrect.");
     const next = await passwordDigest(newPassword);
@@ -279,18 +318,34 @@ export async function sanitizePhoto(file: File, userId: string): Promise<{ photo
     canvas.width = Math.max(1, Math.round(bitmap.width * scale));
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("The image could not be processed.")), "image/jpeg", quality));
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("The image could not be processed.")), "image/jpeg", quality));
+    return { blob, width: canvas.width, height: canvas.height };
   };
-  const original = await render(2600, .9);
-  const thumbnail = await render(720, .82);
-  bitmap.close();
+  const fitWithin = async (limit: number, attempts: Array<[number, number]>) => {
+    let result = await render(...attempts[0]);
+    for (const attempt of attempts.slice(1)) {
+      if (result.blob.size <= limit) break;
+      result = await render(...attempt);
+    }
+    if (result.blob.size > limit) throw new Error("This image could not be reduced to an uploadable size. Choose a smaller image.");
+    return result;
+  };
+  let rendered: Awaited<ReturnType<typeof render>>;
+  let thumbnailRender: Awaited<ReturnType<typeof render>>;
+  try {
+    // Re-encoding through a canvas also drops EXIF and GPS metadata.
+    rendered = await fitWithin(MAX_ORIGINAL_BYTES, [[2600, .9], [2200, .8], [1800, .7]]);
+    thumbnailRender = await fitWithin(MAX_THUMBNAIL_BYTES, [[720, .82], [720, .7], [600, .6], [480, .5]]);
+  } finally { bitmap.close(); }
+  const original = rendered.blob;
+  const thumbnail = thumbnailRender.blob;
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("The image could not be read.")); reader.readAsDataURL(original);
   });
   const id = crypto.randomUUID();
   return {
     photo: { id, url: dataUrl, thumbnailUrl: dataUrl, caption: file.name.replace(/\.[^.]+$/, ""), date: new Date().toISOString().slice(0, 10), isFavourite: false, size: original.size, mimeType: "image/jpeg" },
-    asset: { id, userId, original, thumbnail },
+    asset: { id, userId, original, thumbnail, width: rendered.width, height: rendered.height },
   };
 }
 
