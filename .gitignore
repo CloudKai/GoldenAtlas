@@ -1,4 +1,5 @@
 node_modules/
+.pnpm-store/
 dist/
 coverage/
 .DS_Store
@@ -25,3 +26,8 @@ ios/GoldenAtlas/Config/*.xcconfig
 ios/GoldenAtlas/DerivedData/
 ios/GoldenAtlas/*.xcworkspace/xcuserdata/
 ios/GoldenAtlas/*.xcodeproj/xcuserdata/
+
+# Tool output and alternate package-manager state (this repo uses pnpm only)
+.playwright-cli/
+output/
+package-lock.json
