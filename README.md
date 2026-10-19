@@ -1,12 +1,13 @@
 # Golden Atlas
 
-Golden Atlas is a private visual travel-diary prototype with a local-first Supabase backend. The current Vite interface remains a design reference and still uses mock data; it is not yet connected to Supabase.
+Golden Atlas is a private visual travel diary with a Supabase backend, a Vite design-reference prototype, and a native SwiftUI iPhone client. The Vite interface remains mock-driven; the iOS client in `ios/GoldenAtlas` connects to the real authenticated backend.
 
 ## Prerequisites
 
 - Node.js 22 (`nvm use` reads `.nvmrc`)
 - pnpm 11.7.0
 - Docker Desktop
+- Current stable Xcode for the native iOS client
 
 If your shell still reports Node 20 after changing directories, run `nvm use` first. You can also use `./pnpmw` instead of `pnpm`; it selects the pinned Node version from `.nvmrc` when it is installed under nvm.
 
@@ -27,6 +28,7 @@ Useful commands:
 ./pnpmw backend:test:db
 ./pnpmw backend:test:integration
 ./pnpmw backend:types
+./pnpmw backend:types:swift
 ./pnpmw backend:verify
 ./pnpmw backend:stop
 ```
@@ -43,7 +45,11 @@ Create and inspect migrations/functions with the pinned CLI:
 
 `./pnpmw backend:verify` starts the stack, resets and seeds it twice, runs database and API integration tests, checks generated-type drift, runs Supabase advisors, and builds the Vite prototype.
 
-Trusted scheduled operations are `cleanup-expired-exports` and `cleanup-abandoned-uploads`. Invoke them only from a server-side scheduler with the current Supabase `SECRET_KEY` (never a browser/Expo client). They return `has_more`; call again until it is false. Hosted linking, function deployment, scheduling, SMTP, Google, and Apple credentials are external dashboard/release steps documented below.
+Trusted scheduled operations are `cleanup-expired-exports` and `cleanup-abandoned-uploads`. Invoke them only from a server-side scheduler with the current Supabase `SECRET_KEY` (never a browser/native client). They return `has_more`; call again until it is false. Hosted linking, function deployment, scheduling, SMTP, Google, and Apple credentials are external dashboard/release steps documented below.
+
+## Native iOS development
+
+Open `ios/GoldenAtlas/GoldenAtlas.xcodeproj` after installing Xcode. The `GoldenAtlas-Local` scheme targets the local Supabase stack from an iOS Simulator; `GoldenAtlas-Staging` is for an HTTPS hosted project and connected iPhone. See [the iOS setup guide](ios/GoldenAtlas/README.md) for configuration, signing, and testing.
 
 After staging review, the verified hosted workflow is:
 
@@ -70,4 +76,3 @@ Do not automate production deployment from the verification workflow. Configure 
 - [Hosted authentication setup](docs/HOSTED_AUTH.md)
 
 Country and territory reference data is derived from GeoNames under CC BY 4.0; see [data attribution](supabase/data/README.md).
-# GoldenAtlas

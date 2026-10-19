@@ -1,0 +1,29 @@
+- generic [ref=e65]:
+  - generic [ref=e66]:
+    - img "Mountain ridge in morning light" [ref=e67]
+    - button "Back" [ref=e69]
+    - generic [ref=e72]:
+      - generic [ref=e73]: GOLDEN ATLAS
+      - heading "Create your private atlas" [level=1] [ref=e80]
+  - main [ref=e81]:
+    - paragraph [ref=e87]: Your map and memories are private by default. There is no public profile or social feed.
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - generic [ref=e90]: Name
+        - textbox "Name" [ref=e91]:
+          - /placeholder: What should we call you?
+      - generic [ref=e92]:
+        - generic [ref=e93]: Email
+        - textbox "Email" [ref=e94]:
+          - /placeholder: you@example.com
+      - generic [ref=e95]:
+        - generic [ref=e96]: Password
+        - generic [ref=e97]:
+          - textbox "Password Show password" [ref=e98]:
+            - /placeholder: At least 10 characters
+          - button "Show password" [ref=e99]
+    - button "I agree to the Privacy Policy and Terms. I understand that this prototype uses mock authentication." [ref=e103]
+    - button "Create account" [ref=e106]
+    - paragraph [ref=e107]:
+      - text: Already have an account?
+      - button "Sign in" [ref=e108]

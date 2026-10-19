@@ -1,0 +1,366 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+
+  /* Golden Atlas — Light Mode */
+  --background: #FAF8F4;
+  --foreground: #1A1814;
+  --card: #FFFFFF;
+  --card-foreground: #1A1814;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1814;
+  --primary: #C9A84C;
+  --primary-foreground: #1A1814;
+  --secondary: #F0ECE4;
+  --secondary-foreground: #1A1814;
+  --muted: #E8E4DC;
+  --muted-foreground: #6B6560;
+  --accent: #F5F0E8;
+  --accent-foreground: #1A1814;
+  --destructive: #C0392B;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(26, 24, 20, 0.10);
+  --input: transparent;
+  --input-background: #F0ECE4;
+  --switch-background: #C4BFB5;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #C9A84C;
+  --radius: 0.75rem;
+
+  /* Golden Atlas custom tokens */
+  --gold: #C9A84C;
+  --gold-dark: #A8893D;
+  --gold-light: #F0E4C4;
+  --gold-muted: #E8D9A8;
+  --unvisited: #D4D0C8;
+  --surface: #F5F2EC;
+  --surface-elevated: #FFFFFF;
+  --ocean: #D8E8F0;
+  --map-ocean: #BED8E7;
+  --map-ocean-highlight: #E2F0F6;
+  --map-unvisited: #D6D2CA;
+  --map-border: #B3AEA5;
+  --map-selected: #A8893D;
+  --map-selected-border: #66501F;
+  --map-bucket: #8FB8AD;
+  --map-legend-background: rgba(250, 248, 244, 0.9);
+  --map-hint-background: rgba(255, 255, 255, 0.82);
+  --map-grid: rgba(76, 104, 118, 0.24);
+  --map-grid-line: rgba(76, 104, 118, 0.34);
+  --map-city-marker: #1F6F68;
+  --map-city-marker-border: #FFFFFF;
+  --map-city-marker-text: #FFFFFF;
+
+  --chart-1: #C9A84C;
+  --chart-2: #8FB8AD;
+  --chart-3: #D4917A;
+  --chart-4: #7A9DC0;
+  --chart-5: #A8C07A;
+
+  --sidebar: #FAF8F4;
+  --sidebar-foreground: #1A1814;
+  --sidebar-primary: #C9A84C;
+  --sidebar-primary-foreground: #1A1814;
+  --sidebar-accent: #F0ECE4;
+  --sidebar-accent-foreground: #1A1814;
+  --sidebar-border: rgba(26, 24, 20, 0.10);
+  --sidebar-ring: #C9A84C;
+}
+
+.dark {
+  /* Codex-inspired neutral dark mode with Golden Atlas accents */
+  --background: #0D0D0D;
+  --foreground: #EDEDED;
+  --card: #171717;
+  --card-foreground: #EDEDED;
+  --popover: #1C1C1C;
+  --popover-foreground: #EDEDED;
+  --primary: #C9A84C;
+  --primary-foreground: #1A1814;
+  --secondary: #202020;
+  --secondary-foreground: #EDEDED;
+  --muted: #262626;
+  --muted-foreground: #A1A1A1;
+  --accent: #252525;
+  --accent-foreground: #F5F5F5;
+  --destructive: #E74C3C;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(255, 255, 255, 0.11);
+  --input: #222222;
+  --input-background: #1F1F1F;
+  --switch-background: #454545;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #C9A84C;
+
+  --gold: #C9A84C;
+  --gold-dark: #A8893D;
+  --gold-light: #302A19;
+  --gold-muted: #463A18;
+  --unvisited: #343434;
+  --surface: #151515;
+  --surface-elevated: #202020;
+  --ocean: #101B22;
+  --map-ocean: #101A21;
+  --map-ocean-highlight: #192B35;
+  --map-unvisited: #34383A;
+  --map-border: #555B5E;
+  --map-selected: #C9A84C;
+  --map-selected-border: #F0D987;
+  --map-bucket: #56847A;
+  --map-legend-background: rgba(23, 23, 23, 0.9);
+  --map-hint-background: rgba(23, 23, 23, 0.84);
+  --map-grid: rgba(154, 181, 194, 0.16);
+  --map-grid-line: rgba(154, 181, 194, 0.24);
+  --map-city-marker: #E2C15B;
+  --map-city-marker-border: #111111;
+  --map-city-marker-text: #171717;
+
+  --chart-1: #C9A84C;
+  --chart-2: #6B9E92;
+  --chart-3: #B8705A;
+  --chart-4: #5A80A8;
+  --chart-5: #7A9E5A;
+
+  --sidebar: #0D0D0D;
+  --sidebar-foreground: #EDEDED;
+  --sidebar-primary: #C9A84C;
+  --sidebar-primary-foreground: #1A1814;
+  --sidebar-accent: #202020;
+  --sidebar-accent-foreground: #EDEDED;
+  --sidebar-border: rgba(255, 255, 255, 0.11);
+  --sidebar-ring: #C9A84C;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-gold: var(--gold);
+  --color-gold-dark: var(--gold-dark);
+  --color-gold-light: var(--gold-light);
+  --color-gold-muted: var(--gold-muted);
+  --color-unvisited: var(--unvisited);
+  --color-surface: var(--surface);
+  --color-ocean: var(--ocean);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body,
+  .app-canvas {
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+
+  .app-canvas {
+    background: linear-gradient(135deg, #E8E4DC 0%, #D4CFC6 100%);
+  }
+
+  .dark .app-canvas {
+    background: #080808;
+  }
+
+  .world-map-country {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* SVG paths use their rectangular bounding box for the browser's default
+     focus outline. Draw keyboard focus on the geography instead. */
+  .world-map-country:focus,
+  .world-map-small-country:focus,
+  .world-map-city-marker:focus {
+    outline: none;
+  }
+
+  .world-map-country:focus-visible {
+    stroke: var(--map-selected-border);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--map-selected-border) 72%, transparent));
+  }
+
+  .world-map-small-country:focus-visible .world-map-small-country-dot {
+    stroke: var(--map-selected-border);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--map-selected-border) 72%, transparent));
+  }
+
+  .world-map-city-marker:focus-visible .world-map-city-marker-dot {
+    stroke: var(--map-city-marker-border);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--map-city-marker) 80%, transparent));
+  }
+
+  .world-map-country:not(.world-map-country--selected):hover {
+    filter: brightness(1.08);
+    stroke: var(--map-selected-border);
+  }
+
+  .world-map-country--selected {
+    animation: golden-atlas-country-blink 1.25s ease-in-out infinite;
+  }
+
+  .world-map-marker-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: golden-atlas-marker-pulse 1.25s ease-out infinite;
+  }
+
+  @keyframes golden-atlas-country-blink {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.48;
+    }
+  }
+
+  @keyframes golden-atlas-marker-pulse {
+    0% {
+      opacity: 0.9;
+      transform: scale(0.72);
+    }
+    75%, 100% {
+      opacity: 0;
+      transform: scale(1.35);
+    }
+  }
+
+  .reduce-motion *,
+  .reduce-motion *::before,
+  .reduce-motion *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Keep every page scrollable by touch, wheel, trackpad, and keyboard without a visible track. */
+  .app-canvas,
+  .app-canvas * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .app-canvas::-webkit-scrollbar,
+  .app-canvas *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}

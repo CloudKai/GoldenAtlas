@@ -1,0 +1,20 @@
+- generic [ref=e109]:
+  - img "Travel landscape" [ref=e110]
+  - generic [ref=e112]:
+    - generic [ref=e113]: GOLDEN ATLAS
+    - generic [ref=e120]:
+      - paragraph [ref=e121]: Your private travel diary
+      - heading "Your travels, remembered beautifully." [level=1] [ref=e122]: Your travels,rememberedbeautifully.
+      - paragraph [ref=e123]: Mark countries, save memories, and revisit your journeys through a private world of your own.
+      - generic [ref=e124]:
+        - button "Create Account" [ref=e125]
+        - button "Sign In" [ref=e126]
+        - generic [ref=e127]: or continue with
+        - generic [ref=e131]:
+          - button "Google" [ref=e132]
+          - button "Apple" [ref=e138]
+      - paragraph [ref=e144]:
+        - text: Private by default.
+        - button "Privacy Policy" [ref=e145]
+        - text: ·
+        - button "Terms" [ref=e146]

@@ -1,0 +1,27 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+
+.env
+.env.*
+!.env.example
+
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+supabase/.env.*
+
+*.log
+*.tsbuildinfo
+
+# Native iOS developer configuration and build products
+ios/GoldenAtlas/Config/*.xcconfig
+!ios/GoldenAtlas/Config/*.xcconfig.example
+!ios/GoldenAtlas/Config/Base.xcconfig
+!ios/GoldenAtlas/Config/Debug-Local.xcconfig
+!ios/GoldenAtlas/Config/Debug-Staging.xcconfig
+!ios/GoldenAtlas/Config/Release.xcconfig
+ios/GoldenAtlas/DerivedData/
+ios/GoldenAtlas/*.xcworkspace/xcuserdata/
+ios/GoldenAtlas/*.xcodeproj/xcuserdata/

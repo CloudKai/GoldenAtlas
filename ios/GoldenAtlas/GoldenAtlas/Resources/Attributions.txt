@@ -1,0 +1,7 @@
+Golden Atlas world map
+
+Country paths are derived from @svg-maps/world / MapSVG and used under the
+Creative Commons Attribution 4.0 International license.
+
+https://www.npmjs.com/package/@svg-maps/world
+https://creativecommons.org/licenses/by/4.0/

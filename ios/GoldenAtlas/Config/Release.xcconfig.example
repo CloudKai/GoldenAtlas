@@ -1,0 +1,4 @@
+#include "Base.xcconfig.example"
+SUPABASE_URL = https:/$()/YOUR_PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY = YOUR_PUBLISHABLE_KEY
+GOLDEN_ATLAS_CONFIGURATION = Production

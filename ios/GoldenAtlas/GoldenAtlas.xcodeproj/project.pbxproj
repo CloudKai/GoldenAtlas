@@ -1,0 +1,792 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07639DEEF030D80FAE97C32A /* AuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40A9A9F8D4F54632F2DB0CC /* AuthViews.swift */; };
+		14F9312A4E3272D47F5CA920 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04DA356310BB5EC09AA4E7CD /* RootView.swift */; };
+		3E7BB993FE1604D3F8D567E0 /* MapViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F28327C5ABE440210AB0BA /* MapViews.swift */; };
+		45CE6F2225F4E2F13C8244AA /* TripViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93D4C7EE01D4B37E4A169A8 /* TripViews.swift */; };
+		45EBFE10660EE1AE67847345 /* GoldenAtlasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0197F3613EBE8529900F3A71 /* GoldenAtlasUITests.swift */; };
+		52A486E63609467F0A118AAB /* world-atlas.json in Resources */ = {isa = PBXBuildFile; fileRef = 593AF665F19B67C910B29765 /* world-atlas.json */; };
+		59DF1EE872D6AF2DC5FD6DA5 /* AppCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B6E64C20032E6424952E75 /* AppCore.swift */; };
+		5D415B3ABABCA70ECC50D8C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 072D4F22C220DD07FF9A435A /* Assets.xcassets */; };
+		7934D446648FB612E7045EBF /* CacheAndImages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D1F6010F35CF0F6C67CBB7 /* CacheAndImages.swift */; };
+		8F4F2BAEB94AE741B83B6D41 /* GoldenAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C14E1CE57F79053DC73036B /* GoldenAtlasApp.swift */; };
+		A3F5F4ADE525CDDD00D9C1F2 /* SupabaseRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97CC02CFEEFC04075ADA1ACF /* SupabaseRepositories.swift */; };
+		B6A06886762CF79D42D835D2 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 4C7E50F6D1D91439E8874FAE /* Supabase */; };
+		B6B9A930348F3C7C3BDA5170 /* ProfileViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FF815F30DF8A0D67FA70D3 /* ProfileViews.swift */; };
+		C4D209D3FF95E6C11DA32FEC /* OrientationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0ECF34E17CC90B82695940 /* OrientationController.swift */; };
+		C56BC94128BDA1014878CA60 /* CacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0B6BC7A59F2A96B11482DA /* CacheTests.swift */; };
+		C83BF9CA32879D2E7DD0E55D /* DomainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCFC648B90BEBC2E424EB0B2 /* DomainTests.swift */; };
+		EEB3644530B5406D9CC189B4 /* MemoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3E6D0C532C2F7445022F92 /* MemoryViews.swift */; };
+		F58530A9B3DFEECC0AF3324D /* Attributions.txt in Resources */ = {isa = PBXBuildFile; fileRef = CA9AACF804262A9D17AFE5DC /* Attributions.txt */; };
+		F8AD866C3E05BE3DFF1C3C4C /* Database.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5927DF4950F0AB846B737511 /* Database.generated.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		823FDA4C5B522797DD9B50D9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1C367BD38881CD6BF102CD3E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D062FA3BA4BDC4045B32413A;
+			remoteInfo = GoldenAtlas;
+		};
+		D769213064AE225AF6A1E95D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1C367BD38881CD6BF102CD3E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D062FA3BA4BDC4045B32413A;
+			remoteInfo = GoldenAtlas;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0197F3613EBE8529900F3A71 /* GoldenAtlasUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoldenAtlasUITests.swift; sourceTree = "<group>"; };
+		04DA356310BB5EC09AA4E7CD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		072D4F22C220DD07FF9A435A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		20BA524C0B072033F8477900 /* Debug-Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Debug-Local.xcconfig"; sourceTree = "<group>"; };
+		36C54DA16288FEB5D08EDC8D /* Debug-Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Debug-Staging.xcconfig"; sourceTree = "<group>"; };
+		4D3E6D0C532C2F7445022F92 /* MemoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryViews.swift; sourceTree = "<group>"; };
+		50F28327C5ABE440210AB0BA /* MapViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapViews.swift; sourceTree = "<group>"; };
+		5927DF4950F0AB846B737511 /* Database.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.generated.swift; sourceTree = "<group>"; };
+		593AF665F19B67C910B29765 /* world-atlas.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "world-atlas.json"; sourceTree = "<group>"; };
+		7701A36084A8C3668E702761 /* GoldenAtlasUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GoldenAtlasUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		818FC98EE858A32E28F40F53 /* GoldenAtlas.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GoldenAtlas.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		83FF815F30DF8A0D67FA70D3 /* ProfileViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViews.swift; sourceTree = "<group>"; };
+		97B6E64C20032E6424952E75 /* AppCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCore.swift; sourceTree = "<group>"; };
+		97CC02CFEEFC04075ADA1ACF /* SupabaseRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRepositories.swift; sourceTree = "<group>"; };
+		9C14E1CE57F79053DC73036B /* GoldenAtlasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoldenAtlasApp.swift; sourceTree = "<group>"; };
+		A3D1F6010F35CF0F6C67CBB7 /* CacheAndImages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheAndImages.swift; sourceTree = "<group>"; };
+		B40A9A9F8D4F54632F2DB0CC /* AuthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViews.swift; sourceTree = "<group>"; };
+		B93D4C7EE01D4B37E4A169A8 /* TripViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripViews.swift; sourceTree = "<group>"; };
+		CA9AACF804262A9D17AFE5DC /* Attributions.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Attributions.txt; sourceTree = "<group>"; };
+		D6D588D4E9A78DCBA0BFE48C /* GoldenAtlasTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GoldenAtlasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE0ECF34E17CC90B82695940 /* OrientationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationController.swift; sourceTree = "<group>"; };
+		FB0B6BC7A59F2A96B11482DA /* CacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheTests.swift; sourceTree = "<group>"; };
+		FC3953FE391DFF55AC1EFA02 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		FCFC648B90BEBC2E424EB0B2 /* DomainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		57EECB3C637DA2ADE9D71BD7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B6A06886762CF79D42D835D2 /* Supabase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1E197C971BF30752650CA159 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				5927DF4950F0AB846B737511 /* Database.generated.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		2FE01ACE0162268CEA26948E /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				A3D1F6010F35CF0F6C67CBB7 /* CacheAndImages.swift */,
+				97CC02CFEEFC04075ADA1ACF /* SupabaseRepositories.swift */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		445ACAA5409D1B1CE2A9558D /* GoldenAtlasUITests */ = {
+			isa = PBXGroup;
+			children = (
+				0197F3613EBE8529900F3A71 /* GoldenAtlasUITests.swift */,
+			);
+			path = GoldenAtlasUITests;
+			sourceTree = "<group>";
+		};
+		5D407B9EDCB51DAE9EA696BA /* GoldenAtlasTests */ = {
+			isa = PBXGroup;
+			children = (
+				FB0B6BC7A59F2A96B11482DA /* CacheTests.swift */,
+				FCFC648B90BEBC2E424EB0B2 /* DomainTests.swift */,
+			);
+			path = GoldenAtlasTests;
+			sourceTree = "<group>";
+		};
+		80A07D5BE60A42F32214DBEC /* App */ = {
+			isa = PBXGroup;
+			children = (
+				9C14E1CE57F79053DC73036B /* GoldenAtlasApp.swift */,
+				EE0ECF34E17CC90B82695940 /* OrientationController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		94B8B22478D1D2D645F717BC /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				072D4F22C220DD07FF9A435A /* Assets.xcassets */,
+				CA9AACF804262A9D17AFE5DC /* Attributions.txt */,
+				593AF665F19B67C910B29765 /* world-atlas.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		BDB9A850491F36CE28E8E397 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				20BA524C0B072033F8477900 /* Debug-Local.xcconfig */,
+				36C54DA16288FEB5D08EDC8D /* Debug-Staging.xcconfig */,
+				FC3953FE391DFF55AC1EFA02 /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		CFBDCAC54E2EB314C982FD9D /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				97B6E64C20032E6424952E75 /* AppCore.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D48392E5755D1AE76D5CCB81 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				B40A9A9F8D4F54632F2DB0CC /* AuthViews.swift */,
+				50F28327C5ABE440210AB0BA /* MapViews.swift */,
+				4D3E6D0C532C2F7445022F92 /* MemoryViews.swift */,
+				83FF815F30DF8A0D67FA70D3 /* ProfileViews.swift */,
+				04DA356310BB5EC09AA4E7CD /* RootView.swift */,
+				B93D4C7EE01D4B37E4A169A8 /* TripViews.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		E66C41B38C10AC1037BF796B = {
+			isa = PBXGroup;
+			children = (
+				BDB9A850491F36CE28E8E397 /* Config */,
+				F137AEF7B34D4B3EA6D99112 /* GoldenAtlas */,
+				5D407B9EDCB51DAE9EA696BA /* GoldenAtlasTests */,
+				445ACAA5409D1B1CE2A9558D /* GoldenAtlasUITests */,
+				E72BB09F30E13D23C30FDB16 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E72BB09F30E13D23C30FDB16 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				818FC98EE858A32E28F40F53 /* GoldenAtlas.app */,
+				D6D588D4E9A78DCBA0BFE48C /* GoldenAtlasTests.xctest */,
+				7701A36084A8C3668E702761 /* GoldenAtlasUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F137AEF7B34D4B3EA6D99112 /* GoldenAtlas */ = {
+			isa = PBXGroup;
+			children = (
+				80A07D5BE60A42F32214DBEC /* App */,
+				CFBDCAC54E2EB314C982FD9D /* Core */,
+				D48392E5755D1AE76D5CCB81 /* Features */,
+				1E197C971BF30752650CA159 /* Generated */,
+				2FE01ACE0162268CEA26948E /* Infrastructure */,
+				94B8B22478D1D2D645F717BC /* Resources */,
+			);
+			path = GoldenAtlas;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		45C99B8064A8C98FA6A7936F /* GoldenAtlasUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E9685DD6A3D313090B2D352E /* Build configuration list for PBXNativeTarget "GoldenAtlasUITests" */;
+			buildPhases = (
+				0BE548ADB4901358AE21FC4A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				926207B65618C2FD6F4DDB64 /* PBXTargetDependency */,
+			);
+			name = GoldenAtlasUITests;
+			packageProductDependencies = (
+			);
+			productName = GoldenAtlasUITests;
+			productReference = 7701A36084A8C3668E702761 /* GoldenAtlasUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		D062FA3BA4BDC4045B32413A /* GoldenAtlas */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F992E2E69247E94141CFD2AC /* Build configuration list for PBXNativeTarget "GoldenAtlas" */;
+			buildPhases = (
+				7F4167E1BE6ABA77741DA043 /* Sources */,
+				8CBBF07337773D56C25D7BDA /* Resources */,
+				57EECB3C637DA2ADE9D71BD7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GoldenAtlas;
+			packageProductDependencies = (
+				4C7E50F6D1D91439E8874FAE /* Supabase */,
+			);
+			productName = GoldenAtlas;
+			productReference = 818FC98EE858A32E28F40F53 /* GoldenAtlas.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DD433006BB3723F4BE1BA6AE /* GoldenAtlasTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 04EB945DEFFFCA4828971A80 /* Build configuration list for PBXNativeTarget "GoldenAtlasTests" */;
+			buildPhases = (
+				62E8ECCAFDB85FB0664A8910 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F3C62F4A6FB9F29D4F1490E4 /* PBXTargetDependency */,
+			);
+			name = GoldenAtlasTests;
+			packageProductDependencies = (
+			);
+			productName = GoldenAtlasTests;
+			productReference = D6D588D4E9A78DCBA0BFE48C /* GoldenAtlasTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1C367BD38881CD6BF102CD3E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					45C99B8064A8C98FA6A7936F = {
+						TestTargetID = D062FA3BA4BDC4045B32413A;
+					};
+					D062FA3BA4BDC4045B32413A = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 2737DD9C9BEEBE197D77E932 /* Build configuration list for PBXProject "GoldenAtlas" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E66C41B38C10AC1037BF796B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8EEEC8682EEF314CE68A2148 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E72BB09F30E13D23C30FDB16 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D062FA3BA4BDC4045B32413A /* GoldenAtlas */,
+				DD433006BB3723F4BE1BA6AE /* GoldenAtlasTests */,
+				45C99B8064A8C98FA6A7936F /* GoldenAtlasUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8CBBF07337773D56C25D7BDA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D415B3ABABCA70ECC50D8C9 /* Assets.xcassets in Resources */,
+				F58530A9B3DFEECC0AF3324D /* Attributions.txt in Resources */,
+				52A486E63609467F0A118AAB /* world-atlas.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0BE548ADB4901358AE21FC4A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				45EBFE10660EE1AE67847345 /* GoldenAtlasUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		62E8ECCAFDB85FB0664A8910 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C56BC94128BDA1014878CA60 /* CacheTests.swift in Sources */,
+				C83BF9CA32879D2E7DD0E55D /* DomainTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F4167E1BE6ABA77741DA043 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59DF1EE872D6AF2DC5FD6DA5 /* AppCore.swift in Sources */,
+				07639DEEF030D80FAE97C32A /* AuthViews.swift in Sources */,
+				7934D446648FB612E7045EBF /* CacheAndImages.swift in Sources */,
+				F8AD866C3E05BE3DFF1C3C4C /* Database.generated.swift in Sources */,
+				8F4F2BAEB94AE741B83B6D41 /* GoldenAtlasApp.swift in Sources */,
+				3E7BB993FE1604D3F8D567E0 /* MapViews.swift in Sources */,
+				EEB3644530B5406D9CC189B4 /* MemoryViews.swift in Sources */,
+				C4D209D3FF95E6C11DA32FEC /* OrientationController.swift in Sources */,
+				B6B9A930348F3C7C3BDA5170 /* ProfileViews.swift in Sources */,
+				14F9312A4E3272D47F5CA920 /* RootView.swift in Sources */,
+				A3F5F4ADE525CDDD00D9C1F2 /* SupabaseRepositories.swift in Sources */,
+				45CE6F2225F4E2F13C8244AA /* TripViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		926207B65618C2FD6F4DDB64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D062FA3BA4BDC4045B32413A /* GoldenAtlas */;
+			targetProxy = 823FDA4C5B522797DD9B50D9 /* PBXContainerItemProxy */;
+		};
+		F3C62F4A6FB9F29D4F1490E4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D062FA3BA4BDC4045B32413A /* GoldenAtlas */;
+			targetProxy = D769213064AE225AF6A1E95D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		02066AAB34AFBFAAAE4612EC /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 20BA524C0B072033F8477900 /* Debug-Local.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = "Debug-Local";
+		};
+		19A70F0F5EE227BE15367ECC /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GoldenAtlas/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios;
+				PRODUCT_NAME = "Golden Atlas";
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = "Debug-Local";
+		};
+		1D2B201C21C8FD52937562A8 /* Debug-Staging */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 36C54DA16288FEB5D08EDC8D /* Debug-Staging.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = "Debug-Staging";
+		};
+		4F5B74D91F5827399D68FA71 /* Debug-Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GoldenAtlas/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios;
+				PRODUCT_NAME = "Golden Atlas";
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = "Debug-Staging";
+		};
+		53427FAEC4E40BC86840F4E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Golden Atlas.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Golden Atlas";
+			};
+			name = Release;
+		};
+		6D03AAEA99FF8C2E00158665 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GoldenAtlas;
+			};
+			name = Release;
+		};
+		786A70D425E8C9B62058674E /* Debug-Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GoldenAtlas;
+			};
+			name = "Debug-Staging";
+		};
+		7C5A62DE900F763FE390E5E5 /* Debug-Staging */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Golden Atlas.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Golden Atlas";
+			};
+			name = "Debug-Staging";
+		};
+		C92FD60ECDF3E4237CF4A8FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FC3953FE391DFF55AC1EFA02 /* Release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DD069A11396A7A4773D7CBAD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GoldenAtlas/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios;
+				PRODUCT_NAME = "Golden Atlas";
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F041EF4A1D83BE0FCD836E4E /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Golden Atlas.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Golden Atlas";
+			};
+			name = "Debug-Local";
+		};
+		F067A788FB4F3B4E6980D58E /* Debug-Local */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.goldenatlas.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GoldenAtlas;
+			};
+			name = "Debug-Local";
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		04EB945DEFFFCA4828971A80 /* Build configuration list for PBXNativeTarget "GoldenAtlasTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F041EF4A1D83BE0FCD836E4E /* Debug-Local */,
+				7C5A62DE900F763FE390E5E5 /* Debug-Staging */,
+				53427FAEC4E40BC86840F4E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Debug-Local";
+		};
+		2737DD9C9BEEBE197D77E932 /* Build configuration list for PBXProject "GoldenAtlas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02066AAB34AFBFAAAE4612EC /* Debug-Local */,
+				1D2B201C21C8FD52937562A8 /* Debug-Staging */,
+				C92FD60ECDF3E4237CF4A8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Debug-Local";
+		};
+		E9685DD6A3D313090B2D352E /* Build configuration list for PBXNativeTarget "GoldenAtlasUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F067A788FB4F3B4E6980D58E /* Debug-Local */,
+				786A70D425E8C9B62058674E /* Debug-Staging */,
+				6D03AAEA99FF8C2E00158665 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Debug-Local";
+		};
+		F992E2E69247E94141CFD2AC /* Build configuration list for PBXNativeTarget "GoldenAtlas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				19A70F0F5EE227BE15367ECC /* Debug-Local */,
+				4F5B74D91F5827399D68FA71 /* Debug-Staging */,
+				DD069A11396A7A4773D7CBAD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Debug-Local";
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8EEEC8682EEF314CE68A2148 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.46.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4C7E50F6D1D91439E8874FAE /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8EEEC8682EEF314CE68A2148 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1C367BD38881CD6BF102CD3E /* Project object */;
+}
