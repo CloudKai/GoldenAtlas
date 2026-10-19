@@ -68,7 +68,7 @@ function base64ToBytes(value: string) {
 async function passwordDigest(password: string, salt?: Uint8Array) {
   const activeSalt = salt ?? crypto.getRandomValues(new Uint8Array(16));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const hash = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: activeSalt, iterations: 120_000 }, key, 256);
+  const hash = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: activeSalt as BufferSource, iterations: 120_000 }, key, 256);
   return { salt: bytesToBase64(activeSalt), hash: bytesToBase64(new Uint8Array(hash)) };
 }
 
