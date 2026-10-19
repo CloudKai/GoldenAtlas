@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(10);
+select plan(12);
 
 select has_table('public', 'trip_days', 'trip days table exists');
 select ok((select relrowsecurity from pg_class where oid = 'public.trip_days'::regclass), 'trip days have RLS enabled');
@@ -53,6 +53,17 @@ select throws_ok(
   '23514',
   null,
   'overlong day titles are rejected'
+);
+
+select lives_ok(
+  $$update public.trip_days set places = array['Fushimi Inari', 'Gion'] where trip_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'$$,
+  'a day can list the places visited'
+);
+select throws_ok(
+  $$update public.trip_days set places = array_fill('x'::text, array[31]) where trip_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'$$,
+  '23514',
+  null,
+  'a day cannot list more than thirty places'
 );
 
 reset role;

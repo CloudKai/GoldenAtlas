@@ -393,6 +393,7 @@ export type Database = {
           day_date: string
           id: string
           notes: string | null
+          places: string[]
           title: string | null
           trip_id: string
           updated_at: string
@@ -403,6 +404,7 @@ export type Database = {
           day_date: string
           id?: string
           notes?: string | null
+          places?: string[]
           title?: string | null
           trip_id: string
           updated_at?: string
@@ -413,6 +415,7 @@ export type Database = {
           day_date?: string
           id?: string
           notes?: string | null
+          places?: string[]
           title?: string | null
           trip_id?: string
           updated_at?: string
@@ -500,6 +503,7 @@ export type Database = {
         Row: {
           analytics_consent: boolean
           created_at: string
+          favourite_country_code: string | null
           reduced_motion: boolean
           remove_photo_gps_by_default: boolean
           show_slideshow_caption: boolean
@@ -516,6 +520,7 @@ export type Database = {
         Insert: {
           analytics_consent?: boolean
           created_at?: string
+          favourite_country_code?: string | null
           reduced_motion?: boolean
           remove_photo_gps_by_default?: boolean
           show_slideshow_caption?: boolean
@@ -532,6 +537,7 @@ export type Database = {
         Update: {
           analytics_consent?: boolean
           created_at?: string
+          favourite_country_code?: string | null
           reduced_motion?: boolean
           remove_photo_gps_by_default?: boolean
           show_slideshow_caption?: boolean
@@ -545,7 +551,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_favourite_country_code_fkey"
+            columns: ["favourite_country_code"]
+            isOneToOne: false
+            referencedRelation: "countries"
+            referencedColumns: ["iso_code"]
+          },
+        ]
       }
     }
     Views: {

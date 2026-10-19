@@ -130,7 +130,7 @@ export function tripFromRow(row: TripRow, assembly: TripAssembly): Trip {
     expense: row.expense_amount !== null && row.expense_currency ? { amount: Number(row.expense_amount), currency: row.expense_currency } : undefined,
     days: [...(assembly.days ?? [])]
       .sort((a, b) => a.day_date.localeCompare(b.day_date))
-      .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "" })),
+      .map((day) => ({ date: day.day_date, title: day.title ?? undefined, notes: day.notes ?? "", places: day.places ?? [] })),
     isFavourite: row.is_favourite,
   };
 }
@@ -265,6 +265,8 @@ export function validateRemoteTrip(trip: Trip) {
   (trip.days ?? []).forEach((day) => {
     tooLong("Day title", day.title?.trim(), 120);
     tooLong("Day diary", day.notes, 20_000);
+    (day.places ?? []).forEach((name) => tooLong("Day place", name.trim(), 180));
+    if ((day.places ?? []).length > 30) errors.push("A day can list at most 30 places.");
   });
   trip.photos.forEach((photo) => {
     tooLong("Photo caption", photo.caption, 2_000);

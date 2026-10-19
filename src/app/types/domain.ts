@@ -40,6 +40,8 @@ export interface TripDay {
   title?: string;
   /** The diary entry for that day, or the plan for it when the trip is still ahead. */
   notes: string;
+  /** Names of the places visited that day, in the order they were visited. */
+  places?: string[];
 }
 
 export interface TripExpense {
@@ -89,6 +91,8 @@ export type SlideshowScope =
   | { type: "favourites" }
   | { type: "country"; countryId: string }
   | { type: "trip"; tripId: string }
+  | { type: "day"; tripId: string; date: string }
+  | { type: "onThisDay" }
   | { type: "selection"; photoIds: string[] };
 
 export interface AppStatistics {

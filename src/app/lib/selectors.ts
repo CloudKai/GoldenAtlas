@@ -1,5 +1,6 @@
 import { countsTowardWorldTotal } from "../data/countries";
 import { hasStarted, strandedDays, todayISO } from "./trip-days";
+import { onThisDay } from "./trip-memories";
 import { expenseProblem } from "./trip-extras";
 import type { AppState, AppStatistics, MemoryPhoto, SlideshowScope, Trip } from "../types/domain";
 
@@ -21,6 +22,11 @@ export function photosForScope(state: AppState, scope: SlideshowScope): ReturnTy
   if (scope.type === "favourites") return photos.filter((photo) => photo.isFavourite);
   if (scope.type === "country") return photos.filter((photo) => photo.countryId === scope.countryId);
   if (scope.type === "trip") return photos.filter((photo) => photo.tripId === scope.tripId);
+  if (scope.type === "day") return photos.filter((photo) => photo.tripId === scope.tripId && photo.date === scope.date);
+  if (scope.type === "onThisDay") {
+    const ids = new Set(onThisDay(state.trips).flatMap((entry) => entry.photos.map((photo) => photo.id)));
+    return photos.filter((photo) => ids.has(photo.id));
+  }
   const selected = new Set(scope.photoIds);
   return photos.filter((photo) => selected.has(photo.id));
 }

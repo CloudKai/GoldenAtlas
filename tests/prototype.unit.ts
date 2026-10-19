@@ -7,10 +7,12 @@ import {
 import { allPhotos, deriveStatistics, photosForScope, togglePhotoFavourite, validateTrip } from "../src/app/lib/selectors";
 import type { AppState, Trip } from "../src/app/types/domain";
 import { migrateState } from "../src/app/lib/local-repository";
+import { makeSnippet, searchTrips } from "../src/app/lib/trip-search";
+import { onThisDay } from "../src/app/lib/trip-memories";
 import { addCompanion, currencyOptions, expenseProblem, expenseTotals, formatMoney, parseAmount, setCoverPhoto } from "../src/app/lib/trip-extras";
 import {
   addDays, addDayToTrip, canRemoveLastDay, datesInRange, dayFolders, daysUntil, hasStarted, movePhotoToDay, placePhotosInTrip, planDaySync,
-  removeLastDay, strandedDays, tripStatus, updateDay, updatePhoto,
+  addPlaceToDay, removeLastDay, routeLabel, strandedDays, toggleDayPlace, tripStatus, updateDay, updatePhoto,
 } from "../src/app/lib/trip-days";
 import {
   applyMediaUrls, companionNames, describeAuthError, describeDatabaseError, describeFunctionError, flagEmoji, passwordProblem, placesToRows,
@@ -354,9 +356,9 @@ test("saving days writes only what changed", () => {
 });
 
 test("day diaries load from the database and respect its length limits", () => {
-  const dayRow = (date: string, notes: string | null, title: string | null = null) => ({ id: date, user_id: "u", trip_id: "t", day_date: date, title, notes, created_at: "2030-01-01T00:00:00Z", updated_at: "2030-01-01T00:00:00Z" });
+  const dayRow = (date: string, notes: string | null, title: string | null = null) => ({ id: date, user_id: "u", trip_id: "t", day_date: date, title, notes, places: [] as string[], created_at: "2030-01-01T00:00:00Z", updated_at: "2030-01-01T00:00:00Z" });
   const loaded = tripFromRow(tripRow(), { countryName: () => "France", memories: [], places: [], companions: [], urls: new Map(), cities, days: [dayRow("2025-01-02", "Second"), dayRow("2025-01-01", null, "First")] });
-  assert.deepEqual(loaded.days, [{ date: "2025-01-01", title: "First", notes: "" }, { date: "2025-01-02", title: undefined, notes: "Second" }]);
+  assert.deepEqual(loaded.days, [{ date: "2025-01-01", title: "First", notes: "", places: [] }, { date: "2025-01-02", title: undefined, notes: "Second", places: [] }]);
   assert.equal(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", title: "t".repeat(121), notes: "ok" }] })).length, 1);
   assert.equal(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", notes: "n".repeat(20_001) }] })).length, 1);
   assert.deepEqual(validateRemoteTrip(trip({ days: [{ date: "2025-01-01", notes: "n".repeat(20_000) }] })), []);
@@ -420,4 +422,80 @@ test("companions are added cleanly and the cover moves to the front", () => {
   assert.deepEqual(setCoverPhoto(value, "c").photos.map((photo) => photo.id), ["c", "a", "b"]);
   assert.equal(setCoverPhoto(value, "a"), value, "choosing the current cover changes nothing");
   assert.equal(setCoverPhoto(value, "missing"), value);
+});
+
+// ---------------------------------------------------------------------------
+// Search, on this day, and day places
+// ---------------------------------------------------------------------------
+
+const kyoto = weekTrip({
+  id: "kyoto", title: "Spring in Japan", city: "Kyoto", country: "Japan", countryId: "JP", startDate: "2024-04-01", endDate: "2024-04-05", duration: 5,
+  places: ["Fushimi Inari", "Gion"], companions: ["Aiko Tanaka"], journal: "We walked the Philosopher's Path under the cherry blossoms.",
+  days: [{ date: "2024-04-02", title: "Temples", notes: "Quiet morning at Kiyomizu-dera, then matcha in Gion.", places: ["Kiyomizu-dera", "Gion"] }],
+  photos: [photoOn("p1", "2024-04-02", "Lanterns at dusk"), { ...photoOn("p2", "2024-04-03", ""), location: "Arashiyama bamboo grove" }],
+});
+const lisbon = weekTrip({ id: "lisbon", title: "Lisbon weekend", city: "Lisbon", country: "Portugal", countryId: "PT", startDate: "2025-04-02", endDate: "2025-04-03", duration: 2, places: ["Alfama"], photos: [photoOn("p3", "2025-04-02", "Tram 28")], days: [] });
+
+test("search finds words in diaries, captions, places, and companions, in any order", () => {
+  const ids = (query: string) => searchTrips([kyoto, lisbon], query).map((result) => result.trip.id);
+  assert.deepEqual(ids("kiyomizu"), ["kyoto"], "day diary");
+  assert.deepEqual(ids("lanterns"), ["kyoto"], "photo caption");
+  assert.deepEqual(ids("bamboo"), ["kyoto"], "photo location");
+  assert.deepEqual(ids("aiko"), ["kyoto"], "companion");
+  assert.deepEqual(ids("PHILOSOPHER"), ["kyoto"], "journal, case-insensitive");
+  assert.deepEqual(ids("gion temple"), ["kyoto"], "words may match in different places");
+  assert.deepEqual(ids("alfama tram"), ["lisbon"]);
+  assert.deepEqual(ids("tram bamboo"), [], "every word must be on the same trip");
+  assert.deepEqual(ids("zzz"), []);
+  assert.deepEqual(ids("  "), ["kyoto", "lisbon"], "an empty search keeps every trip");
+});
+
+test("name matches rank first and snippets show where the words were found", () => {
+  const ranked = searchTrips([lisbon, kyoto], "japan").map((result) => result.trip.id);
+  assert.deepEqual(ranked, ["kyoto"]);
+  const [result] = searchTrips([kyoto], "matcha");
+  assert.equal(result.matches[0].field, "day");
+  assert.match(result.matches[0].label, /diary/);
+  assert.match(result.matches[0].snippet, /matcha in Gion/);
+  assert.equal(searchTrips([kyoto], "spring")[0].matches.length, 0, "name matches are already visible on the card");
+  assert.equal(makeSnippet("Café au lait", "cafe"), "Café au lait", "accents never block a match");
+  const long = `${"a ".repeat(60)}needle${" b".repeat(60)}`;
+  assert.match(makeSnippet(long, "needle") ?? "", /^….*needle.*…$/);
+});
+
+test("on this day gathers earlier years with photos or a diary on today's date", () => {
+  const entries = onThisDay([kyoto, lisbon], "2026-04-02");
+  assert.deepEqual(entries.map((entry) => [entry.year, entry.trip.id, entry.photos.length, entry.day?.title ?? null]), [[2025, "lisbon", 1, null], [2024, "kyoto", 1, "Temples"]]);
+  assert.deepEqual(onThisDay([kyoto, lisbon], "2026-04-04"), [], "a day inside the trip with nothing recorded is skipped");
+  assert.deepEqual(onThisDay([kyoto, lisbon], "2025-04-02").map((entry) => entry.trip.id), ["kyoto"], "the current year never counts");
+  assert.deepEqual(onThisDay([weekTrip({ photos: [photoOn("f", "2030-03-30")] })], "2031-03-30").length, 1);
+  assert.deepEqual(onThisDay([weekTrip({ photos: [photoOn("f", "2030-03-30")] })], "2029-03-30"), [], "planned trips are not memories yet");
+  const leap = weekTrip({ startDate: "2024-02-29", endDate: "2024-02-29", photos: [photoOn("l", "2024-02-29")] });
+  assert.equal(onThisDay([leap], "2026-02-28").length, 0);
+  assert.equal(onThisDay([leap], "2028-02-29").length, 1);
+});
+
+test("slideshows can play one day or today's memories", () => {
+  const value = state([kyoto, lisbon]);
+  assert.deepEqual(photosForScope(value, { type: "day", tripId: "kyoto", date: "2024-04-02" }).map((photo) => photo.id), ["p1"]);
+  assert.deepEqual(photosForScope(value, { type: "day", tripId: "kyoto", date: "2024-04-04" }), []);
+});
+
+test("places are tapped onto a day in the order visited, and new ones join the trip", () => {
+  let value = weekTrip({ places: ["Gion", "Nishiki Market"] });
+  value = toggleDayPlace(value, "2030-03-31", "Nishiki Market");
+  value = toggleDayPlace(value, "2030-03-31", "gion");
+  assert.deepEqual(value.days?.[0].places, ["Nishiki Market", "Gion"]);
+  assert.equal(routeLabel(value.days![0].places!), "Nishiki Market → Gion");
+  value = toggleDayPlace(value, "2030-03-31", "NISHIKI MARKET");
+  assert.deepEqual(value.days?.[0].places, ["Gion"], "tapping again removes it");
+  value = toggleDayPlace(value, "2030-03-31", "Gion");
+  assert.deepEqual(value.days, [], "a day with nothing left disappears");
+  value = addPlaceToDay(value, "2030-04-01", "  Philosopher's   Path ");
+  assert.deepEqual(value.places, ["Gion", "Nishiki Market", "Philosopher's Path"]);
+  assert.deepEqual(value.days?.[0].places, ["Philosopher's Path"]);
+  assert.equal(addPlaceToDay(value, "2030-04-01", "philosopher's path"), value, "adding the same place twice changes nothing");
+  assert.deepEqual(addPlaceToDay(value, "2030-04-02", "gion").places, value.places, "an existing trip place is reused, not duplicated");
+  assert.deepEqual(planDaySync([], [{ date: "2030-04-01", notes: "", places: ["A"] }]).toUpsert.length, 1, "a day with only places is saved");
+  assert.equal(planDaySync([{ date: "d", notes: "", places: ["A"] }], [{ date: "d", notes: "", places: ["A"] }]).toUpsert.length, 0);
 });

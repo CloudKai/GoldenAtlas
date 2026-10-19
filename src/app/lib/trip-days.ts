@@ -47,7 +47,7 @@ export function daysUntil(trip: Pick<Trip, "startDate">, today = todayISO()) {
 // ---------------------------------------------------------------------------
 
 export const tripDays = (trip: Pick<Trip, "days">): TripDay[] => trip.days ?? [];
-export const dayHasContent = (day: Pick<TripDay, "title" | "notes">) => Boolean(day.title?.trim() || day.notes.trim());
+export const dayHasContent = (day: Pick<TripDay, "title" | "notes" | "places">) => Boolean(day.title?.trim() || day.notes.trim() || day.places?.length);
 
 export interface DayFolder {
   date: string;
@@ -55,6 +55,7 @@ export interface DayFolder {
   number: number;
   title: string;
   notes: string;
+  places: string[];
   photos: MemoryPhoto[];
 }
 
@@ -82,6 +83,7 @@ export function dayFolders(trip: Pick<Trip, "startDate" | "endDate" | "photos" |
       number: index + 1,
       title: byDate.get(date)?.title ?? "",
       notes: byDate.get(date)?.notes ?? "",
+      places: byDate.get(date)?.places ?? [],
       photos: photosByDate.get(date) ?? [],
     })),
     otherPhotos,
@@ -90,7 +92,7 @@ export function dayFolders(trip: Pick<Trip, "startDate" | "endDate" | "photos" |
 }
 
 /** Sets a day's title and diary. A day with nothing written is removed, since empty days exist implicitly. */
-export function updateDay(trip: Trip, date: string, patch: Partial<Pick<TripDay, "title" | "notes">>): Trip {
+export function updateDay(trip: Trip, date: string, patch: Partial<Pick<TripDay, "title" | "notes" | "places">>): Trip {
   const current = tripDays(trip).find((day) => day.date === date) ?? { date, title: undefined, notes: "" };
   const next: TripDay = { ...current, ...patch };
   const others = tripDays(trip).filter((day) => day.date !== date);
@@ -150,8 +152,41 @@ export function planDaySync(existing: readonly TripDay[], next: readonly TripDay
   return {
     toUpsert: keep.filter((day) => {
       const before = existing.find((item) => item.date === day.date);
-      return !before || (before.title ?? "") !== (day.title ?? "") || before.notes !== day.notes;
+      return !before || (before.title ?? "") !== (day.title ?? "") || before.notes !== day.notes || (before.places ?? []).join("\n") !== (day.places ?? []).join("\n");
     }),
     toDelete: existing.filter((day) => !kept.has(day.date)).map((day) => day.date),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Places visited each day
+// ---------------------------------------------------------------------------
+
+export const MAX_DAY_PLACES = 30;
+const cleanPlace = (name: string) => name.trim().replace(/\s+/g, " ").slice(0, 180);
+const samePlace = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** Adds or removes a place from one day, keeping the order the places were visited. */
+export function toggleDayPlace(trip: Trip, date: string, name: string): Trip {
+  const typed = cleanPlace(name);
+  if (!typed) return trip;
+  // Use the trip's own spelling of a place so "gion" and "Gion" are one place.
+  const place = trip.places.find((existing) => samePlace(existing, typed)) ?? typed;
+  const current = tripDays(trip).find((day) => day.date === date)?.places ?? [];
+  const has = current.some((existing) => samePlace(existing, place));
+  if (!has && current.length >= MAX_DAY_PLACES) return trip;
+  return updateDay(trip, date, { places: has ? current.filter((existing) => !samePlace(existing, place)) : [...current, place] });
+}
+
+/** Adds a brand-new place to the trip's places and to the chosen day. */
+export function addPlaceToDay(trip: Trip, date: string, name: string): Trip {
+  const place = cleanPlace(name);
+  if (!place) return trip;
+  const known = trip.places.find((existing) => samePlace(existing, place));
+  const withPlace = known ? trip : { ...trip, places: [...trip.places, place] };
+  const alreadyThere = (tripDays(withPlace).find((day) => day.date === date)?.places ?? []).some((existing) => samePlace(existing, place));
+  return alreadyThere ? withPlace : toggleDayPlace(withPlace, date, known ?? place);
+}
+
+/** "Tokyo → Kyoto → Osaka" */
+export const routeLabel = (places: readonly string[]) => places.join(" → ");

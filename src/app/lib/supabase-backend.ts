@@ -196,7 +196,7 @@ export function createSupabaseBackend(): AtlasBackend {
     const plan = planDaySync(existing ?? [], tripDays(trip));
     if (plan.toUpsert.length) {
       const saved = await sb.from("trip_days").upsert(
-        plan.toUpsert.map((day) => ({ trip_id: trip.id, day_date: day.date, title: day.title?.trim() || null, notes: day.notes || null })),
+        plan.toUpsert.map((day) => ({ trip_id: trip.id, day_date: day.date, title: day.title?.trim() || null, notes: day.notes || null, places: day.places ?? [] })),
         { onConflict: "trip_id,day_date" },
       );
       if (saved.error) throw dbError(saved.error);
