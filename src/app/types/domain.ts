@@ -72,7 +72,10 @@ export type SlideshowScope =
   | { type: "selection"; photoIds: string[] };
 
 export interface AppStatistics {
+  /** Every distinct country, territory or region with at least one trip. */
   countriesVisited: number;
+  /** The subset of `countriesVisited` that counts toward the 195-country total. */
+  worldCountriesVisited: number;
   totalCountries: 195;
   totalTrips: number;
   totalTravelDays: number;

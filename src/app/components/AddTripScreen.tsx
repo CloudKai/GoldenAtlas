@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ChevronLeft, ChevronRight, Check, MapPin, Calendar, BookOpen, Camera, AlertCircle, Plus, X } from "lucide-react";
-import { COUNTRIES } from "../data/mock-data";
+import { getCountry, searchCountries } from "../data/countries";
 import { CITY_OPTIONS } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
 import { sanitizePhoto, type PhotoAsset } from "../lib/local-repository";
@@ -21,10 +21,13 @@ const PROMPTS = [
 
 export function AddTripScreen() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, saveTrip } = useAppData();
   const [step, setStep] = useState<Step>(1);
-  const [countryId, setCountryId] = useState("");
+  // Opening "Add trip" from a country pre-selects it.
+  const [countryId, setCountryId] = useState(() => getCountry(searchParams.get("country"))?.id ?? "");
   const [selectedCityIds, setSelectedCityIds] = useState<string[]>([]);
+  const [customPlaces, setCustomPlaces] = useState<string[]>([]);
   const [citySearch, setCitySearch] = useState("");
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -39,7 +42,7 @@ export function AddTripScreen() {
   const [photos, setPhotos] = useState<MemoryPhoto[]>([]);
   const [photoAssets, setPhotoAssets] = useState<PhotoAsset[]>([]);
   const [photoStatus, setPhotoStatus] = useState("");
-  const isDirty = Boolean(countryId || title || startDate || endDate || journal || photos.length);
+  const isDirty = Boolean(title || startDate || endDate || journal || photos.length || customPlaces.length || selectedCityIds.length);
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => { if (isDirty) { event.preventDefault(); event.returnValue = ""; } };
@@ -48,11 +51,9 @@ export function AddTripScreen() {
 
   const leave = () => { if (!isDirty || window.confirm("Discard this unsaved trip?")) navigate(-1); };
 
-  const countryList = Object.values(COUNTRIES).filter((c) =>
-    c.name.toLowerCase().includes(countrySearch.toLowerCase())
-  );
+  const countryList = searchCountries(countrySearch);
 
-  const selectedCountry = countryId ? COUNTRIES[countryId] : null;
+  const selectedCountry = getCountry(countryId) ?? null;
   const selectedCities = selectedCityIds.flatMap((id) => {
     const city = CITY_OPTIONS.find((option) => option.id === id);
     return city ? [city] : [];
@@ -68,13 +69,24 @@ export function AddTripScreen() {
     setCitySearch("");
   };
 
+  // Any place can be added by name. Places outside the built-in list simply have no map pin.
+  const addCustomPlace = (value: string) => {
+    const name = value.trim().slice(0, 120);
+    if (!name) return;
+    const known = [...selectedCities.map((city) => city.city), ...customPlaces].some((existing) => existing.toLowerCase() === name.toLowerCase());
+    if (!known) setCustomPlaces((current) => [...current, name]);
+    setCitySearch("");
+  };
+
   const validateStep1 = () => {
     const errs: string[] = [];
     if (!countryId) errs.push("Please select a country.");
     if (!title.trim()) errs.push("Please enter a trip name.");
-    if (!startDate) errs.push("Please enter a start date.");
-    if (!endDate) errs.push("Please enter an end date.");
-    if (startDate && endDate && endDate < startDate) errs.push("End date must be after start date.");
+    if (!startDate && !endDate) errs.push("Please enter when you travelled.");
+    // One date is enough: a missing end date makes it a one-day trip, and a missing start date mirrors the end date.
+    if (startDate && !endDate) setEndDate(startDate);
+    if (endDate && !startDate) setStartDate(endDate);
+    if (startDate && endDate && endDate < startDate) errs.push("End date can’t be before the start date.");
     setErrors(errs);
     return errs.length === 0;
   };
@@ -90,11 +102,11 @@ export function AddTripScreen() {
       if (!selectedCountry) throw new Error("Select a country before saving.");
       const id = crypto.randomUUID();
       const trip: Trip = {
-        id, countryId, title: title.trim(), city: selectedCities.map((city) => city.city).join(" & ") || selectedCountry.name,
+        id, countryId, title: title.trim(), city: [...selectedCities.map((city) => city.city), ...customPlaces].join(" & ") || selectedCountry.name,
         country: selectedCountry.name, countryFlag: selectedCountry.flag, startDate, endDate,
         duration: Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1),
         coverImage: photos[0]?.url || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&q=80&auto=format&fit=crop",
-        photos, journal: journal.trim(), mood, rating, companions: [], places: selectedCities.map((city) => city.city),
+        photos, journal: journal.trim(), mood, rating, companions: [], places: [...selectedCities.map((city) => city.city), ...customPlaces],
         stops: selectedCities.map((city) => ({ id: `${id}-${city.id}`, cityId: city.id, city: city.city, countryId, region: city.region, latitude: city.latitude, longitude: city.longitude, arrivalDate: startDate, departureDate: endDate })),
         isFavourite: false,
       };
@@ -200,8 +212,27 @@ export function AddTripScreen() {
               {/* Cities */}
               <div>
                 <label className="block mb-1.5" style={{ fontSize: "13px", fontWeight: 500, color: "var(--muted-foreground)" }}>Cities or regions</label>
-                {selectedCities.length > 0 && (
+                {(selectedCities.length > 0 || customPlaces.length > 0) && (
                   <div className="mb-2 flex flex-wrap gap-2">
+                    {customPlaces.map((place) => (
+                      <span
+                        key={`custom-${place}`}
+                        className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                        style={{ background: "var(--gold-light)", color: "var(--foreground)", fontSize: "12px", fontWeight: 550 }}
+                      >
+                        <MapPin size={12} style={{ color: "var(--muted-foreground)" }} />
+                        {place}
+                        <button
+                          type="button"
+                          onClick={() => setCustomPlaces((current) => current.filter((item) => item !== place))}
+                          className="ml-0.5 rounded-full p-0.5"
+                          style={{ color: "var(--muted-foreground)" }}
+                          aria-label={`Remove ${place}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
                     {selectedCities.map((city) => (
                       <span
                         key={city.id}
@@ -234,13 +265,14 @@ export function AddTripScreen() {
                       value={citySearch}
                       onChange={(event) => setCitySearch(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter" && availableCities[0]) {
+                        if (event.key === "Enter") {
                           event.preventDefault();
-                          addCity(availableCities[0].id);
+                          if (availableCities[0]) addCity(availableCities[0].id);
+                          else addCustomPlace(citySearch);
                         }
                       }}
                       disabled={!countryId}
-                      placeholder={countryId ? "Search and add a city" : "Select a country first"}
+                      placeholder={countryId ? "Add a city or place" : "Select a country first"}
                       className="min-w-0 flex-1 bg-transparent outline-none disabled:opacity-60"
                       style={{ color: "var(--foreground)", fontSize: "15px" }}
                       aria-label="Add a city or region"
@@ -263,13 +295,21 @@ export function AddTripScreen() {
                           </span>
                           <Plus size={14} style={{ color: "var(--muted-foreground)" }} />
                         </button>
-                      )) : (
-                        <p className="px-3 py-3" style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>No matching cities.</p>
+                      )) : null}
+                      {citySearch.trim() && !availableCities.some((city) => city.city.toLowerCase() === citySearch.trim().toLowerCase()) && (
+                        <button
+                          type="button"
+                          onClick={() => addCustomPlace(citySearch)}
+                          className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
+                        >
+                          <Plus size={14} style={{ color: "var(--gold)" }} />
+                          <span style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 550 }}>Add “{citySearch.trim()}”</span>
+                        </button>
                       )}
                     </div>
                   )}
                 </div>
-                <p className="mt-1.5" style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>Optional. Add every city visited on this trip.</p>
+                <p className="mt-1.5" style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>Optional. Type any city or place and press Enter. Places from our list also appear as pins on your map.</p>
               </div>
 
               {/* Dates */}
@@ -288,7 +328,7 @@ export function AddTripScreen() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="trip-end-date" className="block mb-1.5" style={{ fontSize: "13px", fontWeight: 500, color: "var(--muted-foreground)" }}>End date *</label>
+                  <label htmlFor="trip-end-date" className="block mb-1.5" style={{ fontSize: "13px", fontWeight: 500, color: "var(--muted-foreground)" }}>End date</label>
                   <input
                     id="trip-end-date"
                     type="date"
@@ -409,7 +449,7 @@ export function AddTripScreen() {
               <Camera size={28} className="mb-3" />
               <p style={{ fontSize: "15px", fontWeight: 500 }}>Choose photos</p>
               <p style={{ fontSize: "12px", marginTop: "4px" }}>Select from your library</p>
-              <input className="sr-only" type="file" accept="image/jpeg,image/png" multiple onChange={async (event) => { if (!user) return; setPhotoStatus("Processing photos and removing metadata…"); try { const processed = await Promise.all([...(event.target.files ?? [])].map((file) => sanitizePhoto(file, user.id))); setPhotos((current) => [...current, ...processed.map(({ photo }) => ({ ...photo, date: startDate }))]); setPhotoAssets((current) => [...current, ...processed.map(({ asset }) => asset)]); setPhotoStatus(`${processed.length} ${processed.length === 1 ? "photo is" : "photos are"} ready.`); } catch (reason) { setPhotoStatus(reason instanceof Error ? reason.message : "Photos could not be processed."); } event.target.value = ""; }}/>
+              <input className="sr-only" type="file" accept="image/*" multiple onChange={async (event) => { if (!user) return; setPhotoStatus("Processing photos and removing metadata…"); try { const processed = await Promise.all([...(event.target.files ?? [])].map((file) => sanitizePhoto(file, user.id))); setPhotos((current) => [...current, ...processed.map(({ photo }) => ({ ...photo, date: startDate }))]); setPhotoAssets((current) => [...current, ...processed.map(({ asset }) => asset)]); setPhotoStatus(`${processed.length} ${processed.length === 1 ? "photo is" : "photos are"} ready.`); } catch (reason) { setPhotoStatus(reason instanceof Error ? reason.message : "Photos could not be processed."); } event.target.value = ""; }}/>
             </label>
 
             {photoStatus && <p className="mt-3 text-center text-xs" role="status" style={{ color: "var(--muted-foreground)" }}>{photoStatus}</p>}
@@ -433,7 +473,7 @@ export function AddTripScreen() {
                   <div>
                     <p style={{ fontSize: "16px", fontWeight: 600, color: "var(--foreground)" }}>{title || "Untitled trip"}</p>
                     <p style={{ fontSize: "13px", color: "var(--muted-foreground)" }}>
-                      {selectedCities.length > 0 ? `${selectedCities.map((city) => city.city).join(" · ")}, ` : ""}{selectedCountry.name}
+                      {selectedCities.length + customPlaces.length > 0 ? `${[...selectedCities.map((city) => city.city), ...customPlaces].join(" · ")}, ` : ""}{selectedCountry.name}
                     </p>
                   </div>
                 </div>
@@ -532,7 +572,7 @@ export function AddTripScreen() {
               type="text"
               value={countrySearch}
               onChange={(e) => setCountrySearch(e.target.value)}
-              placeholder="Search countries…"
+              placeholder="Search countries and territories…"
               className="w-full h-11 px-4 rounded-xl outline-none"
               style={{ background: "var(--input-background)", color: "var(--foreground)", fontSize: "15px", border: "1.5px solid transparent" }}
               onFocus={(e) => (e.currentTarget.style.borderColor = "var(--gold)")}
@@ -540,11 +580,12 @@ export function AddTripScreen() {
             />
           </div>
           <div className="flex-1 overflow-y-auto px-4">
-            {countryList.slice(0, 30).map((c) => (
+            {countryList.length === 0 && <p className="py-6 text-center" style={{ color: "var(--muted-foreground)", fontSize: "14px" }}>No matching country or territory. Try another spelling.</p>}
+            {countryList.map((c) => (
               <button
                 key={c.id}
                 onClick={() => {
-                  if (countryId !== c.id) setSelectedCityIds([]);
+                  if (countryId !== c.id) { setSelectedCityIds([]); setCustomPlaces([]); }
                   setCountryId(c.id);
                   setCitySearch("");
                   setShowCountryPicker(false);
@@ -554,7 +595,7 @@ export function AddTripScreen() {
                 style={{ borderColor: "var(--border)" }}
               >
                 <span style={{ fontSize: "24px" }}>{c.flag}</span>
-                <span style={{ fontSize: "15px", color: "var(--foreground)", flex: 1, textAlign: "left" }}>{c.name}</span>
+                <span style={{ fontSize: "15px", color: "var(--foreground)", flex: 1, textAlign: "left" }}>{c.name}{!c.countsTowardTotal && <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}> · territory or region</span>}</span>
                 {countryId === c.id && <Check size={16} style={{ color: "var(--gold)" }} />}
               </button>
             ))}

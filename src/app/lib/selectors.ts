@@ -1,3 +1,4 @@
+import { countsTowardWorldTotal } from "../data/countries";
 import type { AppState, AppStatistics, MemoryPhoto, SlideshowScope, Trip } from "../types/domain";
 
 export const tripsForCountry = (state: AppState, countryId: string) =>
@@ -40,6 +41,7 @@ export function deriveStatistics(state: AppState): AppStatistics {
   });
   return {
     countriesVisited: countries.size,
+    worldCountriesVisited: [...countries].filter(countsTowardWorldTotal).length,
     totalCountries: 195,
     totalTrips: state.trips.length,
     totalTravelDays: state.trips.reduce((sum, trip) => sum + trip.duration, 0),

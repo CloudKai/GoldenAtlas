@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { COUNTRIES } from "../data/mock-data";
+import { getCountry } from "../data/countries";
 import { Globe, Camera, Plane, MapPin, Star, Clock, BarChart2, Info } from "lucide-react";
 import { useAppData } from "../contexts/AppDataContext";
 
@@ -26,11 +26,12 @@ export function StatisticsScreen() {
   const navigate = useNavigate();
   const { state, statistics: stats } = useAppData();
   if (!state || !stats) return null;
-  const pct = Math.round((stats.countriesVisited / stats.totalCountries) * 100);
+  const pct = Math.min(100, Math.round((stats.worldCountriesVisited / stats.totalCountries) * 100));
+  const otherPlaces = stats.countriesVisited - stats.worldCountriesVisited;
   const maxTripsInYear = Math.max(1, ...stats.tripsByYear.map((y) => y.count));
   const visitedIds = [...new Set(state.trips.map((trip) => trip.countryId))];
   const continentCounts = new Map<string, number>();
-  visitedIds.forEach((id) => { const continent = COUNTRIES[id]?.continent ?? "World"; continentCounts.set(continent, (continentCounts.get(continent) ?? 0) + 1); });
+  visitedIds.forEach((id) => { const continent = getCountry(id)?.continent ?? "World"; continentCounts.set(continent, (continentCounts.get(continent) ?? 0) + 1); });
   const continentBreakdown = [...continentCounts].map(([continent, count]) => ({ continent, count }));
 
   return (
@@ -55,12 +56,12 @@ export function StatisticsScreen() {
           <div className="flex items-start justify-between mb-3">
             <div>
               <p style={{ fontSize: "15px", fontWeight: 600, color: "var(--foreground)" }}>World explored</p>
-              <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{stats.countriesVisited} of {stats.totalCountries} countries</p>
+              <p style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>{stats.worldCountriesVisited} of {stats.totalCountries} countries{otherPlaces > 0 ? ` · plus ${otherPlaces} ${otherPlaces === 1 ? "territory or region" : "territories and regions"}` : ""}</p>
             </div>
             <button
               className="w-11 h-11 rounded-full flex items-center justify-center"
               style={{ background: "var(--muted)" }}
-              title="195 sovereign nations according to the UN. Percentage is rounded."
+              title="195 sovereign nations according to the UN. Territories and regions you visit appear on your map but are not part of this total. Percentage is rounded."
               aria-label="About the 195-country total"
             >
               <Info size={13} style={{ color: "var(--muted-foreground)" }} />
@@ -120,7 +121,7 @@ export function StatisticsScreen() {
           <div className="flex flex-col gap-3">
             {[
               { label: "Most visited", value: stats.mostVisitedCountry ?? "Add a trip to begin", icon: "🌍" },
-              { label: "Favourite country", value: state.favouriteCountryId ? COUNTRIES[state.favouriteCountryId]?.name ?? state.favouriteCountryId : "Not chosen", icon: "💛" },
+              { label: "Favourite country", value: state.favouriteCountryId ? getCountry(state.favouriteCountryId)?.name ?? state.favouriteCountryId : "Not chosen", icon: "💛" },
               { label: "First trip", value: stats.firstTrip ? `${stats.firstTrip.country} · ${new Date(`${stats.firstTrip.startDate}T00:00:00`).getFullYear()}` : "No trips yet", icon: "✈️" },
               { label: "Most recent", value: stats.latestTrip ? `${stats.latestTrip.country} · ${new Date(`${stats.latestTrip.endDate}T00:00:00`).getFullYear()}` : "No trips yet", icon: "📍" },
             ].map(({ label, value, icon }) => (
@@ -140,7 +141,7 @@ export function StatisticsScreen() {
           <p className="mb-3" style={{ fontSize: "15px", fontWeight: 600, color: "var(--foreground)" }}>Countries visited</p>
           <div className="flex flex-wrap gap-2">
             {visitedIds.map((id) => {
-              const c = COUNTRIES[id];
+              const c = getCountry(id);
               if (!c) return null;
               return (
                 <button
