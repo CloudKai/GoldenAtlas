@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Search, Filter, ChevronDown, Heart, Camera, Calendar, X } from "lucide-react";
 import type { Trip } from "../types/domain";
 import { useAppData } from "../contexts/AppDataContext";
+import { daysUntil, hasStarted, todayISO } from "../lib/trip-days";
 
 function formatDateRange(start: string, end: string) {
   const s = new Date(start);
@@ -46,15 +47,22 @@ export function TimelineScreen() {
     return true;
   });
 
-  const grouped = groupTripsByYear(filtered);
+  // Trips planned ahead sit in their own section, soonest first; everything that has started is grouped by year.
+  const today = todayISO();
+  const upcoming = filtered.filter((trip) => !hasStarted(trip, today)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const grouped = groupTripsByYear(filtered.filter((trip) => hasStarted(trip, today)));
   const years = Object.keys(grouped).map(Number).sort((a, b) => b - a);
+  const sections = [
+    ...(upcoming.length ? [{ key: "upcoming", label: "Upcoming", trips: upcoming }] : []),
+    ...years.map((year) => ({ key: String(year), label: String(year), trips: grouped[year] })),
+  ];
 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="flex-shrink-0 px-5 pt-4 pb-3 border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between mb-3">
-          <div><h1 style={{ fontSize: "24px", fontWeight: 600, letterSpacing: "-0.02em", color: "var(--foreground)" }}>Trips</h1><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Your journeys, newest first</p></div>
+          <div><h1 style={{ fontSize: "24px", fontWeight: 600, letterSpacing: "-0.02em", color: "var(--foreground)" }}>Trips</h1><p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Past journeys and the ones you are planning</p></div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSearch(!showSearch)}
@@ -108,19 +116,19 @@ export function TimelineScreen() {
             {!trips.length && <button onClick={() => navigate("/app/add-trip")} className="mt-5 h-12 rounded-xl px-5 font-semibold" style={{ background: "var(--gold)", color: "#1a1814" }}>Add your first trip</button>}
           </div>
         ) : (
-          years.map((year) => (
-            <div key={year}>
+          sections.map((section) => (
+            <div key={section.key}>
               {/* Year header */}
               <div className="sticky top-0 z-10 flex items-center gap-3 py-3" style={{ background: "var(--background)" }}>
-                <span style={{ fontSize: "22px", fontWeight: 700, color: "var(--gold)", letterSpacing: "-0.02em" }}>{year}</span>
+                <span style={{ fontSize: "22px", fontWeight: 700, color: "var(--gold)", letterSpacing: "-0.02em" }}>{section.label}</span>
                 <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
                 <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                  {grouped[year].length} {grouped[year].length === 1 ? "trip" : "trips"}
+                  {section.trips.length} {section.trips.length === 1 ? "trip" : "trips"}
                 </span>
               </div>
 
               {/* Trips */}
-              {grouped[year].map((trip, i) => (
+              {section.trips.map((trip, i) => (
                 <button
                   key={trip.id}
                   onClick={() => navigate(`/app/trip/${trip.id}`)}
@@ -129,7 +137,7 @@ export function TimelineScreen() {
                   {/* Timeline line */}
                   <div className="flex flex-col items-center flex-shrink-0 pt-1">
                     <div className="w-3 h-3 rounded-full flex-shrink-0 border-2" style={{ background: "var(--gold)", borderColor: "var(--gold)" }} />
-                    {i < grouped[year].length - 1 && (
+                    {i < section.trips.length - 1 && (
                       <div className="flex-1 w-px mt-1" style={{ background: "var(--border)", minHeight: "60px" }} />
                     )}
                   </div>
@@ -157,7 +165,7 @@ export function TimelineScreen() {
                           {trip.city}, {trip.country}
                         </p>
                         <p className="mb-2" style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                          {formatDateRange(trip.startDate, trip.endDate)} · {trip.duration} days
+                          {formatDateRange(trip.startDate, trip.endDate)} · {trip.duration} {trip.duration === 1 ? "day" : "days"}{!hasStarted(trip, today) ? ` · starts in ${daysUntil(trip, today)} ${daysUntil(trip, today) === 1 ? "day" : "days"}` : ""}
                         </p>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">

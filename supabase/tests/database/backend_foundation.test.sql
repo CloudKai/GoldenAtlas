@@ -16,8 +16,8 @@ select ok(
 );
 select is(
   (select count(*)::integer from pg_class c join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname = 'public' and c.relname in ('countries','profiles','user_preferences','trips','memories','travel_companions','trip_companions','places','bucket_list','data_export_jobs','account_deletion_requests') and c.relrowsecurity),
-  11,
+   where n.nspname = 'public' and c.relname in ('countries','profiles','user_preferences','trips','memories','travel_companions','trip_companions','places','bucket_list','data_export_jobs','account_deletion_requests','trip_days') and c.relrowsecurity),
+  12,
   'all exposed application tables have RLS enabled'
 );
 select ok(

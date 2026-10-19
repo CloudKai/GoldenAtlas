@@ -33,6 +33,15 @@ export interface MemoryPhoto {
   mimeType?: "image/jpeg" | "image/png";
 }
 
+/** A day folder's own writing. Days with nothing written exist implicitly for every date in the trip. */
+export interface TripDay {
+  /** Calendar date, YYYY-MM-DD, unique within a trip. */
+  date: string;
+  title?: string;
+  /** The diary entry for that day, or the plan for it when the trip is still ahead. */
+  notes: string;
+}
+
 export interface Trip {
   id: string;
   countryId: string;
@@ -52,6 +61,8 @@ export interface Trip {
   companions: string[];
   places: string[];
   stops: TripStop[];
+  /** Per-day titles and diary entries. Absent on trips saved before day folders existed. */
+  days?: TripDay[];
   isFavourite: boolean;
 }
 
@@ -77,7 +88,9 @@ export interface AppStatistics {
   /** The subset of `countriesVisited` that counts toward the 195-country total. */
   worldCountriesVisited: number;
   totalCountries: 195;
+  /** Trips that have started. Planned trips are counted in `upcomingTrips` until their first day. */
   totalTrips: number;
+  upcomingTrips: number;
   totalTravelDays: number;
   totalPhotos: number;
   yearsTravelled: number;

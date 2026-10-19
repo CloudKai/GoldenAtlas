@@ -8,7 +8,7 @@ All Data API calls use the authenticated Supabase client. Clients never send `us
 - Select/update the caller's `profiles` and `user_preferences` row.
 - Select/insert/update/delete owned `trips`.
 - Select/insert/update owned `memories`; direct deletion is deliberately unavailable.
-- Select/insert/update/delete owned companions, places, and bucket-list rows.
+- Select/insert/update/delete owned companions, places, trip days, and bucket-list rows. Trip days are upserted on `(trip_id, day_date)`.
 - Select the caller's row from `personal_statistics`.
 - Select owned `data_export_jobs` and `account_deletion_requests` for status only; clients cannot write them.
 

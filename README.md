@@ -35,6 +35,8 @@ cp .env.example .env
 
 With both variables set, the web app uses email/password auth with required email verification (open the link from the local mailbox at `http://127.0.0.1:54324`), Postgres through row-level security, private storage with ten-minute signed image URLs, and the Edge Functions for memory upload, deletion, and data export. The app refuses to start if the key looks like a service-role or secret key. The prototype-only admin console is disabled in this mode.
 
+**Planning and day folders.** A trip dated in the future is a planned trip: it appears under Upcoming on the Trips tab and in the country sheet, and the country turns gold (and statistics count it) only once the trip starts. Every trip is organised into day folders, one per date, each with its own title, diary (or plan) and photos with editable captions. Photos can be moved between days, and a trip can grow by a day at any time, even outside edit mode. Day diaries are stored in the `trip_days` table and included in data exports.
+
 **Try as guest** (Welcome screen) starts a passwordless, device-only session in either mode. Guest trips and photos are stored in this browser's IndexedDB, are never sent to Supabase, and are deleted when the guest leaves or the next guest session starts. They cannot be moved into an account.
 
 Known limits of the web integration:

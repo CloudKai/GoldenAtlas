@@ -5,6 +5,7 @@ import { getCountry, searchCountries } from "../data/countries";
 import { CITY_OPTIONS } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
 import { sanitizePhoto, type PhotoAsset } from "../lib/local-repository";
+import { placePhotosInTrip, todayISO } from "../lib/trip-days";
 import type { MemoryPhoto, Trip } from "../types/domain";
 
 type Step = 1 | 2 | 3 | 4;
@@ -106,7 +107,7 @@ export function AddTripScreen() {
         country: selectedCountry.name, countryFlag: selectedCountry.flag, startDate, endDate,
         duration: Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1),
         coverImage: photos[0]?.url || "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=900&q=80&auto=format&fit=crop",
-        photos, journal: journal.trim(), mood, rating, companions: [], places: [...selectedCities.map((city) => city.city), ...customPlaces],
+        photos: placePhotosInTrip(photos, startDate, endDate || startDate), days: [], journal: journal.trim(), mood, rating, companions: [], places: [...selectedCities.map((city) => city.city), ...customPlaces],
         stops: selectedCities.map((city) => ({ id: `${id}-${city.id}`, cityId: city.id, city: city.city, countryId, region: city.region, latitude: city.latitude, longitude: city.longitude, arrivalDate: startDate, departureDate: endDate })),
         isFavourite: false,
       };
@@ -341,6 +342,11 @@ export function AddTripScreen() {
                   />
                 </div>
               </div>
+              <p style={{ color: "var(--muted-foreground)", fontSize: "11px", lineHeight: 1.5 }}>
+                {startDate && startDate > todayISO()
+                  ? "This trip is ahead of you. It will appear under Upcoming, and the country turns gold on your map once the trip starts. You can plan each day after saving."
+                  : "Planning ahead? Pick future dates. You can add a plan or diary for each day after saving, and add more days whenever the trip grows."}
+              </p>
             </div>
           </div>
         )}

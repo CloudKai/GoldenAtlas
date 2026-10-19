@@ -8,8 +8,9 @@ import {
   SIGNED_URL_SECONDS, OFFLINE_MESSAGE, GENERIC_MESSAGE,
   companionNames, describeAuthError, describeDatabaseError, describeFunctionError, memoryUpdate, passwordProblem,
   placesToRows, planPhotoChanges, sortTrips, tripFromRow, tripToRow, validateRemoteTrip,
-  type ErrorLike, type MediaUrls, type MemoryRow, type PlaceRow, type TripRow,
+  type ErrorLike, type MediaUrls, type MemoryRow, type PlaceRow, type TripDayRow, type TripRow,
 } from "./supabase-mappers";
+import { planDaySync, tripDays } from "./trip-days";
 
 const PAGE_SIZE = 500;
 const SIGN_BATCH = 100;
@@ -100,7 +101,7 @@ export function createSupabaseBackend(): AtlasBackend {
   async function loadTrips(tripIds?: string[]): Promise<Trip[]> {
     if (tripIds && !tripIds.length) return [];
     await loadCountries();
-    const [tripRows, memoryRows, placeRows, companionRows] = await Promise.all([
+    const [tripRows, memoryRows, placeRows, dayRows, companionRows] = await Promise.all([
       fetchAll<TripRow>((from, to) => {
         const query = sb.from("trips").select("*");
         return (tripIds ? query.in("id", tripIds) : query).order("start_date", { ascending: false }).order("id", { ascending: false }).range(from, to);
@@ -113,6 +114,10 @@ export function createSupabaseBackend(): AtlasBackend {
         const query = sb.from("places").select("*");
         return (tripIds ? query.in("trip_id", tripIds) : query).order("trip_id").order("name").order("id").range(from, to);
       }),
+      fetchAll<TripDayRow>((from, to) => {
+        const query = sb.from("trip_days").select("*");
+        return (tripIds ? query.in("trip_id", tripIds) : query).order("trip_id").order("day_date").range(from, to);
+      }),
       fetchAll<{ trip_id: string; travel_companions: { display_name: string } | null }>((from, to) => {
         const query = sb.from("trip_companions").select("trip_id,travel_companions(display_name)");
         return (tripIds ? query.in("trip_id", tripIds) : query).order("trip_id").order("companion_id").range(from, to);
@@ -123,12 +128,14 @@ export function createSupabaseBackend(): AtlasBackend {
     const group = <T extends { trip_id: string }>(rows: T[]) => rows.reduce((map, row) => map.set(row.trip_id, [...(map.get(row.trip_id) ?? []), row]), new Map<string, T[]>());
     const memoriesByTrip = group(memoryRows);
     const placesByTrip = group(placeRows);
+    const daysByTrip = group(dayRows);
     const companionsByTrip = group(companionRows);
 
     return tripRows.map((row) => tripFromRow(row, {
       countryName: (code) => countryNames.get(code) ?? code,
       memories: memoriesByTrip.get(row.id) ?? [],
       places: placesByTrip.get(row.id) ?? [],
+      days: daysByTrip.get(row.id) ?? [],
       companions: (companionsByTrip.get(row.id) ?? []).map((item) => item.travel_companions?.display_name ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b)),
       urls,
       cities: CITY_OPTIONS,
@@ -183,6 +190,21 @@ export function createSupabaseBackend(): AtlasBackend {
     if (!rows.length) return;
     const inserted = await sb.from("places").insert(rows);
     if (inserted.error) throw dbError(inserted.error);
+  }
+
+  async function syncDays(existing: Trip["days"], trip: Trip) {
+    const plan = planDaySync(existing ?? [], tripDays(trip));
+    if (plan.toUpsert.length) {
+      const saved = await sb.from("trip_days").upsert(
+        plan.toUpsert.map((day) => ({ trip_id: trip.id, day_date: day.date, title: day.title?.trim() || null, notes: day.notes || null })),
+        { onConflict: "trip_id,day_date" },
+      );
+      if (saved.error) throw dbError(saved.error);
+    }
+    if (plan.toDelete.length) {
+      const removed = await sb.from("trip_days").delete().eq("trip_id", trip.id).in("day_date", plan.toDelete);
+      if (removed.error) throw dbError(removed.error);
+    }
   }
 
   async function syncCompanions(trip: Trip) {
@@ -325,6 +347,7 @@ export function createSupabaseBackend(): AtlasBackend {
       // saved trip (and a retry edits it) rather than creating a duplicate.
       const warnings: string[] = [];
       try { await syncPlaces(trip); } catch { warnings.push("Cities and places couldn’t be saved. Open Edit trip to try again."); }
+      try { await syncDays(existing?.days, trip); } catch { warnings.push("Some day notes couldn’t be saved. Open Edit trip to try again."); }
       try { await syncCompanions(trip); } catch { warnings.push("Travel companions couldn’t be saved. Open Edit trip to try again."); }
       warnings.push(...await syncPhotos(existing?.photos ?? [], trip, assets));
 

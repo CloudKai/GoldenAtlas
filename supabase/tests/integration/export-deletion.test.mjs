@@ -73,6 +73,8 @@ test("private exports, trip cleanup, and complete account deletion", { timeout: 
   assert.ifError((await userA.client.from("profiles").update({ display_name: "Atlas A" }).eq("id", userA.id)).error);
   assert.ifError((await userA.client.from("bucket_list").insert({ country_code: "JP", notes: "Someday" })).error);
   assert.ifError((await userA.client.from("places").insert({ trip_id: tripA.id, country_code: "SG", name: "Marina Bay" })).error);
+  assert.ifError((await userA.client.from("trip_days").insert({ trip_id: tripA.id, day_date: "2026-01-02", title: "Gardens", notes: "Exported day diary" })).error);
+  assert.ifError((await userB.client.from("trip_days").insert({ trip_id: tripB.id, day_date: "2026-02-01", notes: "User B diary" })).error);
   const { data: companion, error: companionError } = await userA.client
     .from("travel_companions")
     .insert({ display_name: "Travel friend" })
@@ -145,6 +147,8 @@ test("private exports, trip cleanup, and complete account deletion", { timeout: 
   assert.equal(exported.trips.some((trip) => trip.id === tripB.id), false, "User B data is absent");
   assert.equal(exported.memories[0].caption, "Exported caption");
   assert.equal(exported.media_included, false);
+  assert.equal(exported.trip_days.length, 1, "only the requester's day diaries are exported");
+  assert.equal(exported.trip_days[0].notes, "Exported day diary");
 
   const expiredJobId = randomUUID();
   const expiredPath = `${userA.id}/${expiredJobId}/${randomUUID()}.json`;

@@ -1,4 +1,5 @@
 import { countsTowardWorldTotal } from "../data/countries";
+import { hasStarted, strandedDays, todayISO } from "./trip-days";
 import type { AppState, AppStatistics, MemoryPhoto, SlideshowScope, Trip } from "../types/domain";
 
 export const tripsForCountry = (state: AppState, countryId: string) =>
@@ -23,19 +24,21 @@ export function photosForScope(state: AppState, scope: SlideshowScope): ReturnTy
   return photos.filter((photo) => selected.has(photo.id));
 }
 
-export function deriveStatistics(state: AppState): AppStatistics {
-  const sorted = [...state.trips].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const countries = new Set(state.trips.map((trip) => trip.countryId));
-  const years = new Set(state.trips.map((trip) => new Date(`${trip.startDate}T00:00:00`).getFullYear()));
+export function deriveStatistics(state: AppState, today = todayISO()): AppStatistics {
+  // Planned trips are not visits yet, so they stay out of every figure until their first day.
+  const started = state.trips.filter((trip) => hasStarted(trip, today));
+  const sorted = [...started].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const countries = new Set(started.map((trip) => trip.countryId));
+  const years = new Set(started.map((trip) => new Date(`${trip.startDate}T00:00:00`).getFullYear()));
   const countryCounts = new Map<string, { name: string; count: number }>();
-  state.trips.forEach((trip) => {
+  started.forEach((trip) => {
     const current = countryCounts.get(trip.countryId) ?? { name: trip.country, count: 0 };
     current.count += 1;
     countryCounts.set(trip.countryId, current);
   });
   const mostVisitedCountry = [...countryCounts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))[0]?.name;
   const yearCounts = new Map<number, number>();
-  state.trips.forEach((trip) => {
+  started.forEach((trip) => {
     const year = new Date(`${trip.startDate}T00:00:00`).getFullYear();
     yearCounts.set(year, (yearCounts.get(year) ?? 0) + 1);
   });
@@ -43,8 +46,9 @@ export function deriveStatistics(state: AppState): AppStatistics {
     countriesVisited: countries.size,
     worldCountriesVisited: [...countries].filter(countsTowardWorldTotal).length,
     totalCountries: 195,
-    totalTrips: state.trips.length,
-    totalTravelDays: state.trips.reduce((sum, trip) => sum + trip.duration, 0),
+    totalTrips: started.length,
+    upcomingTrips: state.trips.length - started.length,
+    totalTravelDays: started.reduce((sum, trip) => sum + trip.duration, 0),
     totalPhotos: state.trips.reduce((sum, trip) => sum + trip.photos.length, 0),
     yearsTravelled: years.size,
     mostVisitedCountry,
@@ -54,12 +58,14 @@ export function deriveStatistics(state: AppState): AppStatistics {
   };
 }
 
-export function validateTrip(trip: Pick<Trip, "title" | "countryId" | "startDate" | "endDate" | "stops">) {
+export function validateTrip(trip: Pick<Trip, "title" | "countryId" | "startDate" | "endDate" | "stops"> & Partial<Pick<Trip, "days">>) {
   const errors: string[] = [];
   if (!trip.countryId) errors.push("Select a country.");
   if (!trip.title.trim()) errors.push("Enter a trip name.");
   if (!trip.startDate || !trip.endDate) errors.push("Enter both travel dates.");
   if (trip.startDate && trip.endDate && trip.endDate < trip.startDate) errors.push("End date must be on or after the start date.");
+  // Shortening a trip must not silently discard diary entries written on the removed days.
+  if (strandedDays(trip).length) errors.push("Some days outside the new dates have notes. Clear them or keep those dates.");
   const uniqueCities = new Set(trip.stops.map((stop) => stop.cityId));
   if (uniqueCities.size !== trip.stops.length) errors.push("Remove duplicate city stops.");
   return errors;

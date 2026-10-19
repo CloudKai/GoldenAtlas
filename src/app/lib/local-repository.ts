@@ -82,7 +82,7 @@ export function migrateState(value: unknown, userId: string): AppState {
   return {
     schemaVersion: 1,
     userId,
-    trips: Array.isArray(legacy.trips) ? legacy.trips : [],
+    trips: Array.isArray(legacy.trips) ? legacy.trips.map((trip) => ({ ...trip, days: Array.isArray(trip.days) ? trip.days : [] })) : [],
     bucketListIds: Array.isArray(legacy.bucketListIds) ? [...new Set(legacy.bucketListIds)] : [],
     favouriteCountryId: typeof legacy.favouriteCountryId === "string" ? legacy.favouriteCountryId : undefined,
     updatedAt: typeof legacy.updatedAt === "string" ? legacy.updatedAt : new Date().toISOString(),

@@ -626,6 +626,66 @@ public enum PublicSchema {
       case userId = "user_id"
     }
   }
+  public struct TripDaysSelect: Codable, Hashable, Sendable {
+    public let createdAt: String
+    public let dayDate: String
+    public let id: UUID
+    public let notes: String?
+    public let title: String?
+    public let tripId: UUID
+    public let updatedAt: String
+    public let userId: UUID
+    public enum CodingKeys: String, CodingKey {
+      case createdAt = "created_at"
+      case dayDate = "day_date"
+      case id = "id"
+      case notes = "notes"
+      case title = "title"
+      case tripId = "trip_id"
+      case updatedAt = "updated_at"
+      case userId = "user_id"
+    }
+  }
+  public struct TripDaysInsert: Codable, Hashable, Sendable {
+    public let createdAt: String?
+    public let dayDate: String
+    public let id: UUID?
+    public let notes: String?
+    public let title: String?
+    public let tripId: UUID
+    public let updatedAt: String?
+    public let userId: UUID?
+    public enum CodingKeys: String, CodingKey {
+      case createdAt = "created_at"
+      case dayDate = "day_date"
+      case id = "id"
+      case notes = "notes"
+      case title = "title"
+      case tripId = "trip_id"
+      case updatedAt = "updated_at"
+      case userId = "user_id"
+    }
+  }
+  public struct TripDaysUpdate: Codable, Hashable, Sendable {
+    public let createdAt: String?
+    public let dayDate: String?
+    public let id: UUID?
+    public let notes: String?
+    public let title: String?
+    public let tripId: UUID?
+    public let updatedAt: String?
+    public let userId: UUID?
+    public enum CodingKeys: String, CodingKey {
+      case createdAt = "created_at"
+      case dayDate = "day_date"
+      case id = "id"
+      case notes = "notes"
+      case title = "title"
+      case tripId = "trip_id"
+      case updatedAt = "updated_at"
+      case userId = "user_id"
+    }
+  }
   public struct TripsSelect: Codable, Hashable, Sendable {
     public let city: String?
     public let countryCode: String

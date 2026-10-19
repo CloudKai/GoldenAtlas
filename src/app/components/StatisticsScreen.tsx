@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { getCountry } from "../data/countries";
+import { hasStarted } from "../lib/trip-days";
 import { Globe, Camera, Plane, MapPin, Star, Clock, BarChart2, Info } from "lucide-react";
 import { useAppData } from "../contexts/AppDataContext";
 
@@ -29,7 +30,7 @@ export function StatisticsScreen() {
   const pct = Math.min(100, Math.round((stats.worldCountriesVisited / stats.totalCountries) * 100));
   const otherPlaces = stats.countriesVisited - stats.worldCountriesVisited;
   const maxTripsInYear = Math.max(1, ...stats.tripsByYear.map((y) => y.count));
-  const visitedIds = [...new Set(state.trips.map((trip) => trip.countryId))];
+  const visitedIds = [...new Set(state.trips.filter((trip) => hasStarted(trip)).map((trip) => trip.countryId))];
   const continentCounts = new Map<string, number>();
   visitedIds.forEach((id) => { const continent = getCountry(id)?.continent ?? "World"; continentCounts.set(continent, (continentCounts.get(continent) ?? 0) + 1); });
   const continentBreakdown = [...continentCounts].map(([continent, count]) => ({ continent, count }));
