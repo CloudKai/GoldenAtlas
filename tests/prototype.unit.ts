@@ -1,5 +1,9 @@
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
+import {
+  COUNTRY_LIST, MAP_SHAPE_ALIASES, countsTowardWorldTotal, getCountry, resolveCountryId, searchCountries, shapeIdsForCountry,
+} from "../src/app/data/countries";
 import { allPhotos, deriveStatistics, photosForScope, togglePhotoFavourite, validateTrip } from "../src/app/lib/selectors";
 import type { AppState, Trip } from "../src/app/types/domain";
 import { migrateState } from "../src/app/lib/local-repository";
@@ -182,4 +186,63 @@ test("browser configuration rejects privileged keys and weak passwords", () => {
   assert.notEqual(passwordProblem("onlyletterslong"), null);
   assert.notEqual(passwordProblem("1234567890123"), null);
   assert.equal(passwordProblem("a-long-pass-1"), null);
+});
+
+// ---------------------------------------------------------------------------
+// Country coverage
+// ---------------------------------------------------------------------------
+
+const repoFile = (path: string) => readFileSync(path, "utf8");
+const seedCodes = [...repoFile("supabase/seed.sql").matchAll(/^  \('([A-Z]{2})', '[A-Z]{3}',/gm)].map((match) => match[1]);
+const atlas = JSON.parse(repoFile("ios/GoldenAtlas/GoldenAtlas/Resources/world-atlas.json")) as { countries: Array<{ id: string; name: string }> };
+
+test("the web country list is exactly the database country list", () => {
+  assert.equal(seedCodes.length, 250);
+  assert.deepEqual(COUNTRY_LIST.map((country) => country.id).sort(), [...seedCodes].sort());
+  assert.equal(COUNTRY_LIST.filter((country) => country.countsTowardTotal).length, 195);
+  assert.ok(COUNTRY_LIST.every((country) => country.name.trim() === country.name && country.flag && country.continent));
+});
+
+test("every map shape resolves to a country the database can store", () => {
+  assert.ok(atlas.countries.length > 200);
+  const unresolved = atlas.countries.filter((shape) => !getCountry(shape.id)).map((shape) => shape.id);
+  assert.deepEqual(unresolved, []);
+  // Aliases only point at real countries, and every aliased shape really exists on the map.
+  const shapeIds = new Set(atlas.countries.map((shape) => shape.id));
+  Object.entries(MAP_SHAPE_ALIASES).forEach(([shape, target]) => {
+    assert.ok(shapeIds.has(shape), `${shape} is not on the map`);
+    assert.ok(getCountry(target), `${target} is not a country`);
+  });
+});
+
+test("every country can be reached; only Antarctica has no tappable shape", () => {
+  const shapeIds = new Set(atlas.countries.map((shape) => resolveCountryId(shape.id)));
+  const withoutShape = COUNTRY_LIST.filter((country) => !shapeIds.has(country.id)).map((country) => country.id);
+  assert.deepEqual(withoutShape, ["AQ"]);
+  assert.equal(searchCountries("antarctica")[0]?.id, "AQ", "countries without a shape are still found by search");
+  assert.deepEqual(shapeIdsForCountry("UM").sort(), ["UM", "UM-DQ", "UM-FQ", "UM-HQ", "UM-JQ", "UM-MQ", "UM-WQ"]);
+  assert.equal(resolveCountryId("um-mq"), "UM");
+  assert.equal(resolveCountryId("fr"), "FR");
+});
+
+test("country search is lenient about accents, case, and everyday names", () => {
+  assert.equal(searchCountries("").length, 250);
+  const first = (query: string) => searchCountries(query)[0]?.id;
+  assert.equal(first("cote"), "CI");
+  assert.equal(first("holland"), "NL");
+  assert.equal(first("USA"), "US");
+  assert.equal(first("burma"), "MM");
+  assert.equal(first("czech republic"), "CZ");
+  assert.equal(first("curaçao"), "CW");
+  assert.equal(first("uni"), "AE", "names starting with the query rank first");
+  assert.deepEqual(searchCountries("zzzz"), []);
+});
+
+test("territories are selectable but stay out of the 195 total", () => {
+  assert.equal(countsTowardWorldTotal("FR"), true);
+  assert.equal(countsTowardWorldTotal("HK"), false);
+  assert.equal(countsTowardWorldTotal("XX"), false);
+  const value = deriveStatistics(state([trip(), trip({ id: "hk", countryId: "HK", country: "Hong Kong" })]));
+  assert.equal(value.countriesVisited, 2);
+  assert.equal(value.worldCountriesVisited, 1);
 });

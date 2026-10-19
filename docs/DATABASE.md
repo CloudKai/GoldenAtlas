@@ -40,6 +40,8 @@ erDiagram
 
 The seed contains 250 active ISO-like country and territory rows sourced from GeoNames. `counts_toward_world_total` is true only for the 193 UN members plus the Holy See and State of Palestine. Territories remain searchable/selectable but do not increase the product's 195-country denominator.
 
+The web app shares the same list through `src/app/data/countries.generated.ts`, which the same script writes; a unit test fails if it ever differs from `supabase/seed.sql`. Map shapes without their own row (the Îles Éparses and the US Minor Outlying Islands) resolve to the territory they belong to, and Antarctica has no tappable shape but is available from search, the country list, and the trip form.
+
 Regenerate the deterministic seed after intentionally updating the source file:
 
 ```bash

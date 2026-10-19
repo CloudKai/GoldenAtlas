@@ -36,6 +36,7 @@ export interface PhotoAsset {
 }
 
 // Mirrors the storage bucket limits so oversized renders are re-encoded instead of rejected by the server.
+const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
 const MAX_THUMBNAIL_BYTES = 500 * 1024;
 
@@ -309,9 +310,11 @@ export class LocalRepository {
 }
 
 export async function sanitizePhoto(file: File, userId: string): Promise<{ photo: MemoryPhoto; asset: PhotoAsset }> {
-  if (!(["image/jpeg", "image/png"] as string[]).includes(file.type)) throw new Error("Choose a JPEG or PNG image. HEIC conversion is not available in this prototype.");
-  if (file.size > 15 * 1024 * 1024) throw new Error("This image is larger than 15 MiB. Choose a smaller file.");
-  const bitmap = await createImageBitmap(file).catch(() => { throw new Error("This image could not be decoded. Try exporting it as JPEG or PNG."); });
+  // Every photo is decoded and re-encoded to a bounded JPEG below, so the source format and size can be generous.
+  // Whatever the browser can decode is welcome (JPEG, PNG, WebP, AVIF, and HEIC on Safari).
+  if (file.type && !file.type.startsWith("image/")) throw new Error("That file isn’t a photo. Choose an image file.");
+  if (file.size > MAX_SOURCE_BYTES) throw new Error("This image is larger than 50 MiB. Choose a smaller file.");
+  const bitmap = await createImageBitmap(file).catch(() => { throw new Error("Your browser can’t read this image format. Try a JPEG or PNG version of it."); });
   const render = async (maxSide: number, quality: number) => {
     const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");

@@ -2,20 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Search, Plus, List, ZoomIn, ZoomOut, RotateCcw, Info, X, MapPin, Camera, Calendar, ArrowRight, Bookmark, ChevronLeft } from "lucide-react";
 import { WorldMap, type WorldMapHandle } from "./WorldMap";
-import { WORLD_COUNTRY_OPTIONS } from "../data/world-map";
-import { COUNTRIES, type CountryData } from "../data/mock-data";
+import type { CountryData } from "../data/mock-data";
+import { COUNTRY_LIST, countsTowardWorldTotal, flagForCountry, resolveCountryId, searchCountries, shapeIdsForCountry } from "../data/countries";
 import { getCityVisitSummaries, toCityMapMarkers } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
-
-const CONTINENT_BY_COUNTRY: Record<string, string> = {
-  SG: "Asia", MY: "Asia", ID: "Asia", BN: "Asia", PH: "Asia",
-  AU: "Oceania", NZ: "Oceania", PG: "Oceania",
-};
-
-function countryFlag(id: string) {
-  if (!/^[A-Z]{2}$/.test(id)) return "🌍";
-  return String.fromCodePoint(...id.split("").map((letter) => 127397 + letter.charCodeAt(0)));
-}
 
 export function MapScreen() {
   const navigate = useNavigate();
@@ -26,38 +16,37 @@ export function MapScreen() {
   const mapRef = useRef<WorldMapHandle>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showListView, setShowListView] = useState(false);
 
-  const allCountries = useMemo<CountryData[]>(() => WORLD_COUNTRY_OPTIONS.map(({ id, name }) => {
+  // Every country and territory in the database is listed, including places with no tappable shape (such as Antarctica).
+  const allCountries = useMemo<CountryData[]>(() => COUNTRY_LIST.map(({ id, name, flag, continent }) => {
     const countryTrips = appTrips.filter((trip) => trip.countryId === id);
     const dates = countryTrips.flatMap((trip) => [trip.startDate, trip.endDate]).sort();
-    const fixture = COUNTRIES[id];
-    const country = {
+    return {
       id,
-      name: fixture?.name ?? name,
-      flag: fixture?.flag ?? countryFlag(id),
-      continent: fixture?.continent ?? CONTINENT_BY_COUNTRY[id] ?? "World",
+      name,
+      flag,
+      continent,
       visited: countryTrips.length > 0,
-      bucketList: false,
+      bucketList: bucketListIds.includes(id),
       tripCount: countryTrips.length,
       photoCount: countryTrips.reduce((sum, trip) => sum + trip.photos.length, 0),
       firstVisit: dates[0],
       lastVisit: dates.at(-1),
     };
-
-    return {
-      ...country,
-      bucketList: bucketListIds.includes(id),
-    };
   }), [appTrips, bucketListIds]);
+  // Aliased map shapes (for example Midway Islands) light up with the place they belong to.
+  const mapVisitedIds = useMemo(() => visitedIds.flatMap(shapeIdsForCountry), [visitedIds]);
+  const mapBucketListIds = useMemo(() => bucketListIds.flatMap(shapeIdsForCountry), [bucketListIds]);
   const selectedCountry = selectedId
     ? (allCountries.find((country) => country.id === selectedId) ?? {
         id: selectedId,
         name: selectedName,
-        flag: countryFlag(selectedId),
+        flag: flagForCountry(selectedId),
         continent: "World",
         visited: false,
         bucketList: false,
@@ -79,16 +68,19 @@ export function MapScreen() {
     : [];
 
   const visitedList = allCountries.filter((c) => c.visited);
+  const worldVisitedCount = visitedList.filter((c) => countsTowardWorldTotal(c.id)).length;
+  const otherVisitedCount = visitedList.length - worldVisitedCount;
   const bucketList = allCountries.filter((c) => c.bucketList);
 
-  const filteredCountries = allCountries.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const countryById = new Map(allCountries.map((country) => [country.id, country]));
+  const filteredCountries = searchCountries(searchQuery).flatMap((match) => countryById.get(match.id) ?? []);
 
   const selectCountry = (id: string, name?: string) => {
+    const countryId = resolveCountryId(id);
     setSelectedCityId(null);
-    setSelectedId(id);
-    setSelectedName(name ?? allCountries.find((country) => country.id === id)?.name ?? "");
+    setSelectedId(countryId);
+    setSelectedShapeId(id);
+    setSelectedName(allCountries.find((country) => country.id === countryId)?.name ?? name ?? "");
   };
 
   const handleCountryClick = (id: string, name: string) => {
@@ -128,13 +120,13 @@ export function MapScreen() {
           ) : (
             <div className="mx-auto flex h-11 max-w-[210px] items-center justify-center gap-3 rounded-2xl border px-4 shadow-md backdrop-blur-xl" style={{ background: "var(--map-legend-background)", borderColor: "var(--border)" }}>
               <div className="text-right leading-none">
-                <span style={{ color: "var(--foreground)", fontSize: "17px", fontWeight: 700 }}>{visitedList.length}</span>
+                <span style={{ color: "var(--foreground)", fontSize: "17px", fontWeight: 700 }}>{worldVisitedCount}</span>
                 <span style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600 }}> / 195</span>
               </div>
               <div className="h-6 w-px" style={{ background: "var(--border)" }} />
               <div>
                 <p style={{ color: "var(--gold)", fontSize: "9px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Golden Atlas</p>
-                <p className="whitespace-nowrap" style={{ color: "var(--foreground)", fontSize: "11px", fontWeight: 600 }}>Countries visited</p>
+                <p className="whitespace-nowrap" style={{ color: "var(--foreground)", fontSize: "11px", fontWeight: 600 }}>{otherVisitedCount > 0 ? `Countries · +${otherVisitedCount} more` : "Countries visited"}</p>
               </div>
             </div>
           )}
@@ -235,9 +227,9 @@ export function MapScreen() {
       <div className="flex-1 relative" style={{ marginTop: "60px" }}>
         <WorldMap
           ref={mapRef}
-          visitedIds={visitedIds}
-          bucketListIds={bucketListIds}
-          selectedId={selectedId}
+          visitedIds={mapVisitedIds}
+          bucketListIds={mapBucketListIds}
+          selectedId={selectedId ? selectedShapeId : null}
           cityMarkers={cityMarkers}
           selectedCityId={selectedCityId}
           onCountryClick={handleCountryClick}
@@ -406,7 +398,7 @@ export function MapScreen() {
                     <ArrowRight size={15} />
                   </button>
                   <button
-                    onClick={() => navigate("/app/add-trip")}
+                    onClick={() => navigate(`/app/add-trip?country=${selectedId}`)}
                     className="h-11 px-4 rounded-xl flex items-center justify-center border transition-opacity active:opacity-80"
                     style={{ borderColor: "var(--border)", color: "var(--foreground)", fontSize: "14px", fontWeight: 500 }}
                     aria-label={`Add another trip to ${selectedCountry.name}`}
@@ -420,7 +412,7 @@ export function MapScreen() {
             {!selectedCountry?.visited && (
               <div className="flex gap-2">
                 <button
-                  onClick={() => navigate("/app/add-trip")}
+                  onClick={() => navigate(`/app/add-trip?country=${selectedId}`)}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 transition-opacity active:opacity-80"
                   style={{ background: "var(--gold)", color: "#1A1814", fontSize: "14px", fontWeight: 600 }}
                 >

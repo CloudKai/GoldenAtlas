@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ChevronLeft, Plus, Play, Heart, Camera, MapPin, Calendar, MoreHorizontal, Grid, List, Clock, X } from "lucide-react";
-import { COUNTRIES } from "../data/mock-data";
+import { getCountry, resolveCountryId } from "../data/countries";
 import { useAppData } from "../contexts/AppDataContext";
 import { allPhotos } from "../lib/selectors";
 
@@ -14,14 +14,15 @@ function formatDate(dateStr: string) {
 }
 
 export function CountryScreen() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId } = useParams<{ id: string }>();
+  const id = routeId ? resolveCountryId(routeId) : undefined;
   const navigate = useNavigate();
   const { state, setFavouriteCountry } = useAppData();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const isFavourite = state?.favouriteCountryId === id;
 
-  const fixture = id ? COUNTRIES[id] : null;
+  const fixture = getCountry(id) ?? null;
   const trips = id ? (state?.trips ?? []).filter((trip) => trip.countryId === id) : [];
   const photos = state ? allPhotos(state).filter((photo) => photo.countryId === id) : [];
   const dates = trips.flatMap((trip) => [trip.startDate, trip.endDate]).sort();
@@ -42,11 +43,17 @@ export function CountryScreen() {
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Hero */}
       <div className="relative flex-shrink-0" style={{ height: "220px" }}>
-        <img
-          src={trips[0]?.coverImage}
-          alt={country.name}
-          className="w-full h-full object-cover"
-        />
+        {trips[0]?.coverImage ? (
+          <img
+            src={trips[0].coverImage}
+            alt={country.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center" style={{ background: "linear-gradient(135deg, var(--gold-light), var(--muted))" }} role="img" aria-label={country.name}>
+            <span style={{ fontSize: "72px" }} aria-hidden>{country.flag}</span>
+          </div>
+        )}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 40%, rgba(0,0,0,0.6) 100%)" }} />
 
         {/* Back button */}
@@ -130,7 +137,7 @@ export function CountryScreen() {
         </div>
 
         <button
-          onClick={() => navigate("/app/add-trip")}
+          onClick={() => navigate(`/app/add-trip?country=${country.id}`)}
           className="flex items-center gap-1.5 h-11 px-3 rounded-xl"
           style={{ background: "var(--gold)", color: "#1A1814", fontSize: "13px", fontWeight: 600 }}
         >
