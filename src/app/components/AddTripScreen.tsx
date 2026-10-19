@@ -6,6 +6,7 @@ import { CITY_OPTIONS } from "../data/city-visits";
 import { useAppData } from "../contexts/AppDataContext";
 import { sanitizePhoto, type PhotoAsset } from "../lib/local-repository";
 import { placePhotosInTrip, todayISO } from "../lib/trip-days";
+import { clearDraft, loadDraft, newTripDraftHasContent, saveDraft, type DraftEnvelope, type NewTripDraft } from "../lib/drafts";
 import { CompanionsField, ExpenseField } from "./TripExtras";
 import type { MemoryPhoto, Trip, TripExpense } from "../types/domain";
 
@@ -40,6 +41,9 @@ export function AddTripScreen() {
   const [mood, setMood] = useState("✨");
   const [rating, setRating] = useState(5);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState("");
+  // One id for the whole form, so retrying after a failed save edits the same trip instead of creating a second one.
+  const [tripId] = useState(() => crypto.randomUUID());
   const [errors, setErrors] = useState<string[]>([]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
@@ -48,12 +52,36 @@ export function AddTripScreen() {
   const [photoStatus, setPhotoStatus] = useState("");
   const isDirty = Boolean(title || startDate || endDate || journal || photos.length || customPlaces.length || selectedCityIds.length || companions.length || expense);
 
+  // Unsaved text is kept on this device (photos are not), so a lost connection or closed tab does not lose the trip.
+  const draftKey = user ? `add-trip:${user.id}` : null;
+  const [restorable, setRestorable] = useState<DraftEnvelope<NewTripDraft> | null>(() => {
+    const found = draftKey ? loadDraft<NewTripDraft>(draftKey) : null;
+    return found && newTripDraftHasContent(found.data) ? found : null;
+  });
+  useEffect(() => {
+    if (!draftKey || restorable || saving || !isDirty) return;
+    const timer = window.setTimeout(() => saveDraft<NewTripDraft>(draftKey, { countryId, title, startDate, endDate, journal, mood, rating, selectedCityIds, customPlaces, companions, expense }), 700);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, restorable, saving, isDirty, countryId, title, startDate, endDate, journal, mood, rating, selectedCityIds, customPlaces, companions, expense]);
+  const restoreDraft = () => {
+    if (!restorable) return;
+    const d = restorable.data;
+    setCountryId(getCountry(d.countryId)?.id ?? ""); setTitle(d.title); setStartDate(d.startDate); setEndDate(d.endDate); setJournal(d.journal);
+    setMood(d.mood); setRating(d.rating); setSelectedCityIds(d.selectedCityIds); setCustomPlaces(d.customPlaces); setCompanions(d.companions); setExpense(d.expense);
+    setRestorable(null);
+  };
+  const discardDraft = () => { if (draftKey) clearDraft(draftKey); setRestorable(null); };
+
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => { if (isDirty) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  const leave = () => { if (!isDirty || window.confirm("Discard this unsaved trip?")) navigate(-1); };
+  const leave = () => {
+    if (isDirty && !window.confirm("Discard this unsaved trip?")) return;
+    if (draftKey) clearDraft(draftKey);
+    navigate(-1);
+  };
 
   const countryList = searchCountries(countrySearch);
 
@@ -104,7 +132,7 @@ export function AddTripScreen() {
     setSaving(true);
     try {
       if (!selectedCountry) throw new Error("Select a country before saving.");
-      const id = crypto.randomUUID();
+      const id = tripId;
       const trip: Trip = {
         id, countryId, title: title.trim(), city: [...selectedCities.map((city) => city.city), ...customPlaces].join(" & ") || selectedCountry.name,
         country: selectedCountry.name, countryFlag: selectedCountry.flag, startDate, endDate,
@@ -114,10 +142,13 @@ export function AddTripScreen() {
         stops: selectedCities.map((city) => ({ id: `${id}-${city.id}`, cityId: city.id, city: city.city, countryId, region: city.region, latitude: city.latitude, longitude: city.longitude, arrivalDate: startDate, departureDate: endDate })),
         isFavourite: false,
       };
-      const warnings = await saveTrip(trip, photoAssets);
-      navigate(`/app/trip/${id}`, { replace: true, state: warnings.length ? { notice: warnings.join(" ") } : undefined });
+      const outcome = await saveTrip(trip, photoAssets, (update) => setProgress(
+        update.stage === "photos" ? `${update.done} of ${update.total} photos uploaded…` : "Saving trip…",
+      ));
+      if (draftKey) clearDraft(draftKey);
+      navigate(`/app/trip/${id}`, { replace: true, state: outcome.warnings.length ? { notice: outcome.warnings.join(" ") } : undefined });
     } catch (reason) { setErrors([reason instanceof Error ? reason.message : "Trip could not be saved."]); setStep(1); }
-    finally { setSaving(false); }
+    finally { setSaving(false); setProgress(""); }
   };
 
   const steps = [
@@ -162,6 +193,14 @@ export function AddTripScreen() {
           />
         ))}
       </div>
+
+      {restorable && (
+        <div role="status" className="mx-4 mb-2 flex flex-wrap items-center gap-3 rounded-xl p-3" style={{ background: "var(--gold-light)", color: "var(--foreground)", fontSize: "13px" }}>
+          <span className="min-w-0 flex-1">You have an unsaved trip from {new Date(restorable.savedAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}. Photos are not kept in drafts.</span>
+          <button type="button" onClick={restoreDraft} className="h-9 rounded-lg px-3 font-semibold" style={{ background: "var(--gold)", color: "#1a1814" }}>Restore</button>
+          <button type="button" onClick={discardDraft} className="h-9 rounded-lg px-3 font-semibold" style={{ border: "1px solid var(--border)" }}>Discard</button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-5">
@@ -559,7 +598,7 @@ export function AddTripScreen() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Saving trip…
+                {progress || "Saving trip…"}
               </>
             ) : (
               <>

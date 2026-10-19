@@ -21,9 +21,10 @@ export interface CityRef {
   longitude: number;
 }
 
+/** Signed links for one photo. Either may be missing: thumbnails are signed first, originals follow. */
 export interface MediaUrls {
-  url: string;
-  thumbnailUrl: string;
+  url?: string;
+  thumbnailUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ export function stopFromPlace(place: PlaceRow, cities: readonly CityRef[], trip:
 export function photoFromMemory(row: MemoryRow, urls: MediaUrls | undefined): MemoryPhoto {
   return {
     id: row.id,
-    url: urls?.url ?? "",
+    url: urls?.url || urls?.thumbnailUrl || "",
     thumbnailUrl: urls?.thumbnailUrl || urls?.url || undefined,
     caption: row.caption ?? "",
     date: dateFromTakenAt(row.taken_at, row.created_at),
@@ -235,7 +236,8 @@ export function applyMediaUrls(state: AppState, urls: ReadonlyMap<string, MediaU
     trips: state.trips.map((trip) => {
       const photos = trip.photos.map((photo) => {
         const fresh = urls.get(photo.id);
-        return fresh ? { ...photo, url: fresh.url, thumbnailUrl: fresh.thumbnailUrl } : photo;
+        // A link that failed to sign must never replace one that still works.
+        return fresh ? { ...photo, url: fresh.url || photo.url, thumbnailUrl: fresh.thumbnailUrl || photo.thumbnailUrl } : photo;
       });
       return { ...trip, photos, coverImage: photos.find((photo) => photo.url)?.url ?? trip.coverImage };
     }),

@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { useTheme, type ThemePreference } from "../contexts/ThemeContext";
+import { emitPreferenceChange } from "../lib/preferences-sync";
 import { useAppData } from "../contexts/AppDataContext";
 import {
   getImageQuality,
@@ -415,7 +416,7 @@ export function ProfileScreen() {
         <SectionHeader title="App preferences" description="Control how Golden Atlas looks and behaves" />
         <SettingsCard>
           <SettingRow icon={Palette} label="Appearance" description="Follow your device or choose a theme" value={{ system: "System", light: "Light", dark: "Dark" }[theme]} onPress={() => setPanel("theme")} />
-          <ToggleRow icon={Accessibility} label="Reduce motion" description="Use simpler, shorter transitions" value={reducedMotion} onChange={setReducedMotion} />
+          <ToggleRow icon={Accessibility} label="Reduce motion" description="Use simpler, shorter transitions" value={reducedMotion} onChange={(value) => { setReducedMotion(value); emitPreferenceChange({ reducedMotion: value }); }} />
         </SettingsCard>
 
         <SectionHeader title="Slideshow" description="Defaults used when revisiting your memories" />
@@ -440,8 +441,8 @@ export function ProfileScreen() {
 
         <SectionHeader title="Privacy & data" description="Your travel history stays private by default" />
         <SettingsCard>
-          <ToggleRow icon={MapPin} label="Remove exact location" description="Strip GPS metadata before upload" value={removeLocation} onChange={(value) => { setRemoveLocation(value); localStorage.setItem("golden-atlas:remove-location", String(value)); }} />
-          <ToggleRow icon={Shield} label="Anonymous analytics" description="Share anonymous app-performance data" value={analytics} onChange={(value) => { setAnalytics(value); localStorage.setItem("golden-atlas:analytics", String(value)); }} />
+          <ToggleRow icon={MapPin} label="Remove exact location" description="Strip GPS metadata before upload" value={removeLocation} onChange={(value) => { setRemoveLocation(value); localStorage.setItem("golden-atlas:remove-location", String(value)); emitPreferenceChange({ removeLocation: value }); }} />
+          <ToggleRow icon={Shield} label="Anonymous analytics" description="Share anonymous app-performance data" value={analytics} onChange={(value) => { setAnalytics(value); localStorage.setItem("golden-atlas:analytics", String(value)); emitPreferenceChange({ analytics: value }); }} />
           <SettingRow icon={Download} label="Download your data" description={remote ? "Prepare a private JSON export (link expires in minutes)" : "Prepare a private JSON export"} onPress={downloadData} />
           <SettingRow icon={Shield} label="Privacy policy" description="How Golden Atlas protects your data" onPress={() => navigate("/legal/privacy")} />
         </SettingsCard>

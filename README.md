@@ -37,6 +37,10 @@ With both variables set, the web app uses email/password auth with required emai
 
 **Planning and day folders.** A trip dated in the future is a planned trip: it appears under Upcoming on the Trips tab and in the country sheet, and the country turns gold (and statistics count it) only once the trip starts. Every trip is organised into day folders, one per date, each with its own title, diary (or plan) and photos with editable captions. Photos can be moved between days, and a trip can grow by a day at any time, even outside edit mode. Day diaries are stored in the `trip_days` table and included in data exports.
 
+**More ways to revisit a trip.** Search looks through names, places, companions, journals, every day's diary and photo captions, and shows where the words were found. Memories shows *On this day* from earlier years, any single day can be played as a slideshow, and each day lists the places visited as a route. A trip book page lays a trip out for the browser's print dialog (Save as PDF); it is built locally and never uploaded. Trips can record a total spent (or a budget, while still ahead) and who came along, and any photo can be made the cover.
+
+**Reliability.** Photos upload a few at a time with a progress count and automatic retries; if some still fail the trip is saved and a Retry button keeps the photos in memory until the page is closed. Text you are writing is kept on the device as a draft, so a lost connection or closed tab does not lose it, and an offline banner explains what is happening. Opening the app signs thumbnails first and swaps in full-size images afterwards. Theme, motion, slideshow and privacy settings and the favourite country are stored on the account and follow you to new devices.
+
 **Try as guest** (Welcome screen) starts a passwordless, device-only session in either mode. Guest trips and photos are stored in this browser's IndexedDB, are never sent to Supabase, and are deleted when the guest leaves or the next guest session starts. They cannot be moved into an account.
 
 Known limits of the web integration:
@@ -44,6 +48,7 @@ Known limits of the web integration:
 - Photos are decoded and re-encoded in the browser (which removes EXIF/GPS) before upload; only JPEG and PNG inputs are supported.
 - The favourite country, theme, slideshow, and privacy toggles are still stored per device. The schema has no column for favourite country yet; adding one needs a new migration and regenerated types.
 - Google and Apple sign-in are unavailable until provider credentials are configured (see [hosted authentication](docs/HOSTED_AUTH.md)).
+- Drafts hold text only; photos are asked for again. Failed-upload retries live in memory and are lost if the page is reloaded.
 
 Useful commands:
 
@@ -98,5 +103,6 @@ Do not automate production deployment from the verification workflow. Configure 
 - [Privacy and media data flow](docs/PRIVACY_DATA_FLOW.md)
 - [Backup and recovery assumptions](docs/BACKUP_RECOVERY.md)
 - [Hosted authentication setup](docs/HOSTED_AUTH.md)
+- [Manual QA checklist](docs/QA_CHECKLIST.md)
 
 Country and territory reference data is derived from GeoNames under CC BY 4.0; see [data attribution](supabase/data/README.md).

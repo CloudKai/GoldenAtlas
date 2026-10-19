@@ -43,7 +43,7 @@ export function createLocalBackend(): AtlasBackend {
       await localRepository.savePhotoAssets(assets);
       const exists = state.trips.some((item) => item.id === trip.id);
       const trips = exists ? state.trips.map((item) => item.id === trip.id ? trip : item) : [trip, ...state.trips];
-      return { state: await persist({ ...state, trips }), warnings: [] };
+      return { state: await persist({ ...state, trips }), warnings: [], failedPhotoIds: [] };
     },
 
     async deleteTrip(state, tripId) {

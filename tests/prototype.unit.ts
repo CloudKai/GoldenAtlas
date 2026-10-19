@@ -7,6 +7,10 @@ import {
 import { allPhotos, deriveStatistics, photosForScope, togglePhotoFavourite, validateTrip } from "../src/app/lib/selectors";
 import type { AppState, Trip } from "../src/app/types/domain";
 import { migrateState } from "../src/app/lib/local-repository";
+import { runPool, withRetry } from "../src/app/lib/async-pool";
+import { applyEditDraft, clearAllDrafts, clearDraft, editDraftDiffers, loadDraft, newTripDraftHasContent, saveDraft, toEditDraft, type StorageLike } from "../src/app/lib/drafts";
+import { clearFailedUploads, failedUploadsFor, stashFailedUploads } from "../src/app/lib/pending-uploads";
+import { isUntouchedRow, mergePreferences, preferencesFromRow, readLocalPreferences, rowPatchFromPreferences, writeLocalPreferences } from "../src/app/lib/preferences-sync";
 import { makeSnippet, searchTrips } from "../src/app/lib/trip-search";
 import { onThisDay } from "../src/app/lib/trip-memories";
 import { addCompanion, currencyOptions, expenseProblem, expenseTotals, formatMoney, parseAmount, setCoverPhoto } from "../src/app/lib/trip-extras";
@@ -498,4 +502,143 @@ test("places are tapped onto a day in the order visited, and new ones join the t
   assert.deepEqual(addPlaceToDay(value, "2030-04-02", "gion").places, value.places, "an existing trip place is reused, not duplicated");
   assert.deepEqual(planDaySync([], [{ date: "2030-04-01", notes: "", places: ["A"] }]).toUpsert.length, 1, "a day with only places is saved");
   assert.equal(planDaySync([{ date: "d", notes: "", places: ["A"] }], [{ date: "d", notes: "", places: ["A"] }]).toUpsert.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Reliability: uploads, drafts, and synced settings
+// ---------------------------------------------------------------------------
+
+const memoryStorage = (): StorageLike & { data: Map<string, string> } => {
+  const data = new Map<string, string>();
+  return { data, getItem: (key) => data.get(key) ?? null, setItem: (key, value) => { data.set(key, value); }, removeItem: (key) => { data.delete(key); } };
+};
+
+test("a pool never runs more than its limit at once, keeps order, and isolates failures", async () => {
+  let running = 0;
+  let peak = 0;
+  const results = await runPool([1, 2, 3, 4, 5, 6, 7], 3, async (item) => {
+    running += 1; peak = Math.max(peak, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    if (item === 4) throw new Error("boom");
+    return item * 10;
+  });
+  assert.equal(peak, 3);
+  assert.deepEqual(results.map((result) => result.ok ? result.value : "failed"), [10, 20, 30, "failed", 50, 60, 70]);
+  assert.deepEqual(await runPool([], 3, async () => 1), []);
+  assert.equal((await runPool([1], 99, async (item) => item))[0].ok, true);
+});
+
+test("retries back off, stop for permanent errors, and give up after the last attempt", async () => {
+  const waits: number[] = [];
+  const sleep = async (ms: number) => { waits.push(ms); };
+  let calls = 0;
+  const value = await withRetry(async () => { calls += 1; if (calls < 3) throw new Error("flaky"); return "ok"; }, { attempts: 3, delayMs: 100, sleep });
+  assert.deepEqual([value, calls, waits], ["ok", 3, [100, 200]]);
+
+  calls = 0;
+  await assert.rejects(withRetry(async () => { calls += 1; throw new Error("down"); }, { attempts: 3, delayMs: 1, sleep }), /down/);
+  assert.equal(calls, 3);
+
+  calls = 0;
+  await assert.rejects(withRetry(async () => { calls += 1; throw new Error("denied"); }, { attempts: 5, sleep, shouldRetry: () => false }), /denied/);
+  assert.equal(calls, 1, "permanent errors are not retried");
+});
+
+test("failed uploads are remembered per trip until they succeed", () => {
+  const upload = (id: string) => ({ photo: photoOn(id, "2030-03-30"), asset: { id, userId: "u", original: new Blob(["x"]), thumbnail: new Blob(["y"]) } });
+  stashFailedUploads("trip-a", [upload("p1"), upload("p2")]);
+  stashFailedUploads("trip-b", [upload("p3")]);
+  assert.deepEqual(failedUploadsFor("trip-a").map((item) => item.photo.id), ["p1", "p2"]);
+  stashFailedUploads("trip-a", [upload("p2")]);
+  assert.equal(failedUploadsFor("trip-a").length, 2, "retrying the same photo does not duplicate it");
+  clearFailedUploads("trip-a", ["p1"]);
+  assert.deepEqual(failedUploadsFor("trip-a").map((item) => item.photo.id), ["p2"]);
+  clearFailedUploads("trip-a");
+  assert.deepEqual(failedUploadsFor("trip-a"), []);
+  assert.equal(failedUploadsFor("trip-b").length, 1, "other trips are untouched");
+  clearFailedUploads("trip-b");
+});
+
+test("drafts survive reloads but expire, tolerate corruption, and respect size", () => {
+  const storage = memoryStorage();
+  const start = new Date("2030-01-01T10:00:00Z");
+  assert.equal(saveDraft("k", { title: "Lisbon" }, storage, start), true);
+  assert.deepEqual(loadDraft("k", storage, new Date("2030-01-02T10:00:00Z"))?.data, { title: "Lisbon" });
+  assert.equal(loadDraft("k", storage, new Date("2030-03-01T10:00:00Z")), null, "old drafts expire");
+  assert.equal(storage.data.size, 0, "an expired draft is removed");
+
+  storage.setItem("golden-atlas:draft:bad", "{not json");
+  assert.equal(loadDraft("bad", storage), null);
+  assert.equal(storage.data.has("golden-atlas:draft:bad"), false, "a corrupt draft is removed");
+  storage.setItem("golden-atlas:draft:old", JSON.stringify({ version: 99, savedAt: start.toISOString(), data: {} }));
+  assert.equal(loadDraft("old", storage, start), null, "an unknown format is ignored");
+
+  assert.equal(saveDraft("big", { text: "x".repeat(300_000) }, storage), false, "oversized drafts are refused");
+  assert.equal(saveDraft("k", { a: 1 }, null), false, "no storage means no draft, never an error");
+  const full: StorageLike = { getItem: () => null, removeItem: () => {}, setItem: () => { throw new Error("quota"); } };
+  assert.equal(saveDraft("k", { a: 1 }, full), false, "a full disk never throws");
+  saveDraft("gone", { a: 1 }, storage);
+  clearDraft("gone", storage);
+  assert.equal(loadDraft("gone", storage), null);
+});
+
+test("signing out removes every draft but nothing else", () => {
+  const data = new Map<string, string>([["golden-atlas:theme", "dark"]]);
+  const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); }, removeItem: (k: string) => { data.delete(k); }, key: (i: number) => [...data.keys()][i] ?? null, get length() { return data.size; } };
+  saveDraft("add-trip:u1", { a: 1 }, storage);
+  saveDraft("trip-edit:u1:t1", { a: 2 }, storage);
+  saveDraft("add-trip:u2", { a: 3 }, storage);
+  clearAllDrafts(storage);
+  assert.deepEqual([...data.keys()], ["golden-atlas:theme"]);
+  assert.doesNotThrow(() => clearAllDrafts(null));
+  assert.doesNotThrow(() => clearAllDrafts(memoryStorage()), "storage that cannot be listed is left alone");
+});
+
+test("trip edits are restored onto the saved trip, captions included", () => {
+  const saved = weekTrip({ days: [], photos: [photoOn("a", "2030-03-30", "old"), photoOn("b", "2030-03-31", "keep")] });
+  assert.equal(editDraftDiffers(saved, toEditDraft(saved)), false, "nothing changed, nothing to save");
+  const edited = updatePhoto(updateDay({ ...saved, title: "Renamed", journal: "Written offline" }, "2030-03-31", { notes: "Offline diary" }), "a", { caption: "new caption" });
+  const draft = toEditDraft(edited);
+  assert.equal(editDraftDiffers(saved, draft), true);
+  const restored = applyEditDraft(saved, draft);
+  assert.deepEqual([restored.title, restored.journal, restored.days?.[0].notes], ["Renamed", "Written offline", "Offline diary"]);
+  assert.deepEqual(restored.photos.map((photo) => photo.caption), ["new caption", "keep"]);
+  assert.deepEqual(restored.photos.map((photo) => photo.url), saved.photos.map((photo) => photo.url), "photos themselves are never replaced");
+  const withoutPhoto = applyEditDraft({ ...saved, photos: [saved.photos[1]] }, draft);
+  assert.deepEqual(withoutPhoto.photos.map((photo) => photo.id), ["b"], "captions for photos that no longer exist are ignored");
+  const blank = { countryId: "", title: " ", startDate: "", endDate: "", journal: "", mood: "✨", rating: 5, selectedCityIds: [], customPlaces: [], companions: [] };
+  assert.equal(newTripDraftHasContent(blank), false);
+  assert.equal(newTripDraftHasContent({ ...blank, companions: ["Sam"] }), true);
+});
+
+test("settings map to and from the account without losing meaning", () => {
+  const row = { theme: "dark", reduced_motion: true, remove_photo_gps_by_default: false, analytics_consent: true, slideshow_duration_seconds: 8, slideshow_transition: "dissolve", slideshow_order: "reverse_chronological" };
+  const prefs = preferencesFromRow(row);
+  assert.deepEqual(prefs, { theme: "dark", reducedMotion: true, removeLocation: false, analytics: true, slideshow: { duration: 8, transition: "Dissolve", order: "Newest first" } });
+  assert.deepEqual(rowPatchFromPreferences(prefs), { theme: "dark", reduced_motion: true, remove_photo_gps_by_default: false, analytics_consent: true, slideshow_duration_seconds: 8, slideshow_transition: "dissolve", slideshow_order: "reverse_chronological" });
+  assert.deepEqual(rowPatchFromPreferences({ theme: "light" }), { theme: "light" }, "only changed settings are written");
+  assert.deepEqual(rowPatchFromPreferences({ slideshow: { duration: 99 } }), { slideshow_duration_seconds: 30 }, "durations are kept inside the database range");
+  assert.deepEqual(rowPatchFromPreferences({ slideshow: { order: "Shuffle", transition: "None" } }), { slideshow_order: "random", slideshow_transition: "none" });
+  assert.equal(preferencesFromRow({ ...row, slideshow_transition: "slide", theme: "weird", slideshow_order: "???" }).slideshow.transition, "Fade", "the native app's slide shows as the closest web transition");
+  assert.equal(preferencesFromRow({ ...row, theme: "weird" }).theme, "system");
+  assert.equal(isUntouchedRow({ created_at: "2030-01-01T00:00:00.100Z", updated_at: "2030-01-01T00:00:00.400Z" }), true);
+  assert.equal(isUntouchedRow({ created_at: "2030-01-01T00:00:00Z", updated_at: "2030-02-01T00:00:00Z" }), false);
+  assert.deepEqual(mergePreferences(prefs, { slideshow: { duration: 3 } }).slideshow, { duration: 3, transition: "Dissolve", order: "Newest first" });
+});
+
+test("this device's settings can be read and written back", () => {
+  const storage = memoryStorage();
+  assert.deepEqual(readLocalPreferences(storage), { theme: "system", reducedMotion: false, removeLocation: true, analytics: false, slideshow: { duration: 5, transition: "Fade", order: "Chronological" } }, "private by default");
+  writeLocalPreferences({ theme: "dark", reducedMotion: true, removeLocation: false, analytics: true, slideshow: { duration: 12, transition: "None", order: "Shuffle" } }, storage);
+  assert.deepEqual(readLocalPreferences(storage), { theme: "dark", reducedMotion: true, removeLocation: false, analytics: true, slideshow: { duration: 12, transition: "None", order: "Shuffle" } });
+  storage.setItem("golden-atlas:slideshow", "{broken");
+  assert.equal(readLocalPreferences(storage).slideshow.duration, 5, "a damaged setting falls back to the default");
+});
+
+test("original-quality links arrive after thumbnails without replacing working ones", () => {
+  const first = applyMediaUrls(state([trip({ photos: [{ id: "photo-1", url: "thumb", thumbnailUrl: "thumb", caption: "", date: "2025-01-02", isFavourite: false }] })]), new Map([["photo-1", { url: "original" }]]));
+  assert.deepEqual([first.trips[0].photos[0].url, first.trips[0].photos[0].thumbnailUrl], ["original", "thumb"]);
+  const failed = applyMediaUrls(first, new Map([["photo-1", { url: "", thumbnailUrl: "" }]]));
+  assert.deepEqual([failed.trips[0].photos[0].url, failed.trips[0].photos[0].thumbnailUrl], ["original", "thumb"], "a link that failed to sign never replaces a working one");
 });

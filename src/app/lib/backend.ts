@@ -1,10 +1,26 @@
 import type { AppState, AppUser, Trip } from "../types/domain";
 import type { PhotoAsset } from "./local-repository";
 import type { MediaUrls } from "./supabase-mappers";
+import type { AccountPreferences, PreferencesPatch } from "./preferences-sync";
 
 export interface AtlasSession {
   user: AppUser;
   state: AppState;
+  /** The account's saved settings, when the backend keeps them. `untouched` means they are still the defaults. */
+  preferences?: { values: AccountPreferences; untouched: boolean };
+}
+
+export interface SaveProgress {
+  stage: "details" | "photos";
+  done: number;
+  total: number;
+}
+
+export interface SaveResult {
+  state: AppState;
+  warnings: string[];
+  /** Photos that did not upload. The trip itself is saved. */
+  failedPhotoIds: string[];
 }
 
 export type RegisterResult =
@@ -27,7 +43,7 @@ export interface AtlasBackend {
   signOut(): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   completePasswordReset(newPassword: string): Promise<void>;
-  saveTrip(state: AppState, trip: Trip, assets: PhotoAsset[]): Promise<{ state: AppState; warnings: string[] }>;
+  saveTrip(state: AppState, trip: Trip, assets: PhotoAsset[], onProgress?: (progress: SaveProgress) => void): Promise<SaveResult>;
   deleteTrip(state: AppState, tripId: string): Promise<AppState>;
   toggleTripFavourite(state: AppState, tripId: string): Promise<AppState>;
   togglePhotoFavourite(state: AppState, photoId: string): Promise<AppState>;
@@ -37,7 +53,9 @@ export interface AtlasBackend {
   changePassword(user: AppUser, currentPassword: string, newPassword: string): Promise<void>;
   deleteAccount(user: AppUser, password?: string): Promise<void>;
   /** Re-signs private image URLs before they expire. Only present for backends that use expiring URLs. */
-  refreshMedia?(photoIds: string[]): Promise<Map<string, MediaUrls>>;
+  refreshMedia?(photoIds: string[], scope?: "originals" | "all"): Promise<Map<string, MediaUrls>>;
+  /** Stores settings on the account so they follow the user. Only present for backends with accounts. */
+  savePreferences?(patch: PreferencesPatch): Promise<void>;
   /** Prepares a server-generated export. Only present for backends with server-side export. */
   exportData?(): Promise<Blob>;
 }

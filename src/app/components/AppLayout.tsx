@@ -1,5 +1,7 @@
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { Map, Luggage, Images, BarChart3, User } from "lucide-react";
+import { Map, Luggage, Images, BarChart3, User, WifiOff } from "lucide-react";
+import { useAppData } from "../contexts/AppDataContext";
+import { useOnlineStatus } from "../lib/use-online";
 
 const NAV_ITEMS = [
   { path: "/app/map", icon: Map, label: "Map" },
@@ -12,6 +14,8 @@ const NAV_ITEMS = [
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { remote } = useAppData();
+  const online = useOnlineStatus();
   const isSlideshow = location.pathname === "/app/slideshow";
   const isSubflow = isSlideshow || location.pathname === "/app/add-trip" || location.pathname.startsWith("/app/trip/") || /^\/app\/memories\/[^/]+$/.test(location.pathname);
 
@@ -40,6 +44,13 @@ export function AppLayout() {
           </svg>
         </div>
       </div>
+
+      {remote && !online && (
+        <div role="status" className="flex flex-shrink-0 items-center gap-2 px-4 py-2" style={{ background: "var(--gold-light)", color: "var(--foreground)", fontSize: "12px" }}>
+          <WifiOff size={14} className="flex-shrink-0" />
+          <span>You’re offline. Keep writing: drafts stay on this device until you’re back and tap Save.</span>
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 overflow-hidden">
